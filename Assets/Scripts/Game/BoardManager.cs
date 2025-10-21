@@ -49,7 +49,6 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager> {
 
     private void OnNewGameStarted()
     {
-        if (this == null) return;
         // 1. Clear all VisualPieces
         ClearBoard();
 
@@ -73,7 +72,6 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager> {
 
     private void OnGameResetToHalfMove()
     {
-        if (this == null) return;
         ClearBoard();
 
         if (capturedPiecesUI != null)
@@ -151,26 +149,20 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager> {
 
     public void TryDestroyVisualPiece(Square position)
     {
-        if (this == null) return;
-        if (!positionMap.TryGetValue(position, out GameObject squareGO) || squareGO == null) return;
-        VisualPiece visualPiece = squareGO.GetComponentInChildren<VisualPiece>();
+        VisualPiece visualPiece = positionMap[position].GetComponentInChildren<VisualPiece>();
         if (visualPiece != null)
         {
-            VisualPiece visualPiece2 = positionMap[position].GetComponentInChildren<VisualPiece>();
-            if (visualPiece2 != null)
+            if (capturedPiecesUI != null)
             {
-                if (capturedPiecesUI != null)
-                {
-                    // Sử dụng PieceTypeManual để xác định sprite
-                    capturedPiecesUI.AddCapturedPiece(
-                        visualPiece2.PieceType, // <-- dùng PieceType hoặc PieceTypeManual
-                        visualPiece2.PieceColor == Side.White
-                    );
-                }
-
-                // Xoá quân cờ khỏi board
-                DestroyImmediate(visualPiece2.gameObject);
+                // Sử dụng PieceTypeManual để xác định sprite
+                capturedPiecesUI.AddCapturedPiece(
+                    visualPiece.PieceType, // <-- dùng PieceType hoặc PieceTypeManual
+                    visualPiece.PieceColor == Side.White
+                );
             }
+
+            // Xoá quân cờ khỏi board
+            DestroyImmediate(visualPiece.gameObject);
         }
     }
 
@@ -195,20 +187,12 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager> {
 	}
 	
 	private void ClearBoard() {
-        if (this == null) return;
-        VisualPiece[] visualPiece = GetComponentsInChildren<VisualPiece>(true);
+		VisualPiece[] visualPiece = GetComponentsInChildren<VisualPiece>(true);
 
 		foreach (VisualPiece pieceBehaviour in visualPiece) {
 			DestroyImmediate(pieceBehaviour.gameObject);
 		}
 	}
 
-    private void OnDestroy()
-    {
-        GameManager.NewGameStartedEvent -= OnNewGameStarted;
-        GameManager.GameResetToHalfMoveEvent -= OnGameResetToHalfMove;
-    }
-
-
-    public GameObject GetSquareGOByPosition(Square position) => Array.Find(allSquaresGO, go => go.name == SquareToString(position));
+	public GameObject GetSquareGOByPosition(Square position) => Array.Find(allSquaresGO, go => go.name == SquareToString(position));
 }
