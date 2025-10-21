@@ -49,6 +49,7 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager> {
 
     private void OnNewGameStarted()
     {
+        if (this == null) return;
         // 1. Clear all VisualPieces
         ClearBoard();
 
@@ -72,6 +73,7 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager> {
 
     private void OnGameResetToHalfMove()
     {
+        if (this == null) return;
         ClearBoard();
 
         if (capturedPiecesUI != null)
@@ -149,20 +151,26 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager> {
 
     public void TryDestroyVisualPiece(Square position)
     {
-        VisualPiece visualPiece = positionMap[position].GetComponentInChildren<VisualPiece>();
+        if (this == null) return;
+        if (!positionMap.TryGetValue(position, out GameObject squareGO) || squareGO == null) return;
+        VisualPiece visualPiece = squareGO.GetComponentInChildren<VisualPiece>();
+
         if (visualPiece != null)
         {
-            if (capturedPiecesUI != null)
+            VisualPiece visualPiece2 = positionMap[position].GetComponentInChildren<VisualPiece>();
+            if (visualPiece2 != null)
             {
-                // Sử dụng PieceTypeManual để xác định sprite
-                capturedPiecesUI.AddCapturedPiece(
-                    visualPiece.PieceType, // <-- dùng PieceType hoặc PieceTypeManual
-                    visualPiece.PieceColor == Side.White
-                );
-            }
+                if (capturedPiecesUI != null)
+                {
+                    capturedPiecesUI.AddCapturedPiece(
+                        visualPiece2.PieceType,
+                        visualPiece2.PieceColor == Side.White
+                    );
+                }
 
-            // Xoá quân cờ khỏi board
-            DestroyImmediate(visualPiece.gameObject);
+                // Xoá quân cờ khỏi board
+                DestroyImmediate(visualPiece2.gameObject);
+            }
         }
     }
 
@@ -187,12 +195,20 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager> {
 	}
 	
 	private void ClearBoard() {
-		VisualPiece[] visualPiece = GetComponentsInChildren<VisualPiece>(true);
+        if (this == null) return;
+        VisualPiece[] visualPiece = GetComponentsInChildren<VisualPiece>(true);
 
-		foreach (VisualPiece pieceBehaviour in visualPiece) {
+        foreach (VisualPiece pieceBehaviour in visualPiece) {
 			DestroyImmediate(pieceBehaviour.gameObject);
 		}
 	}
 
-	public GameObject GetSquareGOByPosition(Square position) => Array.Find(allSquaresGO, go => go.name == SquareToString(position));
+    private void OnDestroy()
+    {
+        GameManager.NewGameStartedEvent -= OnNewGameStarted;
+        GameManager.GameResetToHalfMoveEvent -= OnGameResetToHalfMove;
+    }
+
+
+    public GameObject GetSquareGOByPosition(Square position) => Array.Find(allSquaresGO, go => go.name == SquareToString(position));
 }
