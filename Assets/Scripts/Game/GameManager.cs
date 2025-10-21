@@ -20,9 +20,6 @@ public class GameManager : MonoBehaviourSingleton<GameManager> {
     [Header("AI Settings")]
     [SerializeField] private bool whiteIsAI = false;
     [SerializeField] private bool blackIsAI = false;
-    private bool lastWhiteAI;
-    private bool lastBlackAI;
-
 
     // Milliseconds cho mỗi nước đi của AI (tương đương mức độ khó)
     [SerializeField] private int aiThinkTimeMs = 5000;
@@ -51,15 +48,9 @@ public class GameManager : MonoBehaviourSingleton<GameManager> {
         
         Debug.Log($"[GameManager] Awake: Game mode set to {this.aiMode} from PlayerPrefs.");
 
-        //// Clean up the PlayerPrefs key so it doesn't affect the next game launch.
-        //PlayerPrefs.DeleteKey("GameMode");
-    }
-
-    private void OnApplicationQuit()
-    {
+        // Clean up the PlayerPrefs key so it doesn't affect the next game launch.
         PlayerPrefs.DeleteKey("GameMode");
     }
-
 
     private void EnsureAudio()
     {
@@ -142,7 +133,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager> {
 		};
 
         ApplyAIModeToFlags();
-        RestartWithCurrentMode();
+        StartNewGame(whiteIsAI, blackIsAI);
 
 #if DEBUG_VIEW
 		unityChessDebug.gameObject.SetActive(true);
@@ -160,10 +151,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager> {
 #else
 	public async void StartNewGame(bool isWhiteAI = false, bool isBlackAI = false) {
 #endif
-        lastWhiteAI = isWhiteAI;
-        lastBlackAI = isBlackAI;
-
-        game = new Game();
+		game = new Game();
         // HỦY UI/CTS còn treo từ ván trước
         if (UIManager.Instance != null) UIManager.Instance.SetActivePromotionUI(false);
         promotionUITaskCancellationTokenSource?.Cancel();
@@ -416,11 +404,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager> {
             case AIMode.AIVsAI:
                 whiteIsAI = true; blackIsAI = true; break;
         }
-
-        lastWhiteAI = whiteIsAI;
-        lastBlackAI = blackIsAI;
     }
-
     public void SetAIMode(int modeIndex)
     {
         aiMode = (AIMode)modeIndex;
@@ -434,30 +418,9 @@ public class GameManager : MonoBehaviourSingleton<GameManager> {
 
     public void RestartWithCurrentMode()
     {
-        // ✅ In ra log để xác minh giá trị thật trong PlayerPrefs
-        string desiredMode = PlayerPrefs.GetString("GameMode", "PlayerVsPlayer");
-        Debug.Log($"[GameManager] RestartWithCurrentMode() reading GameMode = {desiredMode}");
-
-        // ✅ Áp dụng đúng mode dựa trên PlayerPrefs
-        if (desiredMode == "PlayerVsAI")
-        {
-            aiMode = AIMode.HumanVsAI_Black;
-        }
-        else
-        {
-            aiMode = AIMode.HumanVsHuman;
-        }
-
         ApplyAIModeToFlags();
-
-        Debug.Log($"[GameManager] Restarting New Game as {aiMode} (whiteAI={whiteIsAI}, blackAI={blackIsAI})");
-
-        // ✅ Bắt đầu lại ván đúng chế độ
         StartNewGame(whiteIsAI, blackIsAI);
     }
-
-
-
     // Lấy tâm world của một ô, KHÔNG phụ thuộc pivot
     private static Vector3 GetSquareWorldCenter(Transform square)
     {
