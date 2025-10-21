@@ -16,19 +16,21 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     [SerializeField] private AudioSource sfxSource;
     [SerializeField] private AudioClip sfxMove;
     [SerializeField] private AudioClip sfxCheck;
+
     [Header("AI Settings")]
     [SerializeField] private bool whiteIsAI = false;
     [SerializeField] private bool blackIsAI = false;
     private bool lastWhiteAI;
     private bool lastBlackAI;
-
     [SerializeField] private int aiThinkTimeMs = 5000;
+
+    // --- ĐÃ XÓA BIẾN cameraRigTransform VÀ HEADER CAMERA ORIENTATION ---
 
     public enum AIMode
     {
         HumanVsHuman,
-        HumanVsAI_White,
-        HumanVsAI_Black,
+        HumanVsAI_White, // Người chơi Đen, AI Trắng
+        HumanVsAI_Black, // Người chơi Trắng, AI Đen
         AIVsAI
     }
 
@@ -44,7 +46,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
                 this.aiMode = AIMode.HumanVsAI_White;
                 break;
             case "PlayerVsAI_Black":
-            case "PlayerVsAI":
+            case "PlayerVsAI": // Nếu có chế độ PlayerVsAI chung mà không rõ bên
                 this.aiMode = AIMode.HumanVsAI_Black;
                 break;
             case "PlayerVsPlayer":
@@ -156,10 +158,10 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         {
             case AIMode.HumanVsAI_White:
                 this.isWhiteAI = true;
-                this.isBlackAI = false;
+                this.isBlackAI = false; // Người chơi cầm Đen
                 break;
             case AIMode.HumanVsAI_Black:
-                this.isWhiteAI = false;
+                this.isWhiteAI = false; // Người chơi cầm Trắng
                 this.isBlackAI = true;
                 break;
             case AIMode.AIVsAI:
@@ -188,16 +190,32 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         ApplyAIModeToFlags();
         RestartWithCurrentMode();
 
+        // --- ĐÃ XÓA OrientCameraForPlayerSide() ---
+
 #if DEBUG_VIEW
 		unityChessDebug.gameObject.SetActive(true);
 		unityChessDebug.enabled = true;
 #endif
     }
 
+    // --- ĐÃ XÓA HÀM OrientCameraForPlayerSide() ---
+
     private void OnDestroy()
     {
         VisualPiece.VisualPieceMoved -= OnPieceMoved;
         uciEngine?.ShutDown();
+    }
+
+    // HÀM MỚI: XÁC ĐỊNH BÊN NGƯỜI CHƠI
+    public Side GetHumanSide()
+    {
+        return aiMode switch
+        {
+            AIMode.HumanVsAI_White => Side.Black, // Người chơi cầm Đen
+            AIMode.HumanVsAI_Black => Side.White, // Người chơi cầm Trắng
+            AIMode.HumanVsHuman => Side.White,    // Mặc định góc Trắng
+            _ => Side.White
+        };
     }
 
 #if AI_TEST
@@ -208,6 +226,14 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
 #endif
         lastWhiteAI = isWhiteAI;
         lastBlackAI = isBlackAI;
+
+        // --- THÊM LOGIC XOAY BÀN CỜ ---
+        Side humanSide = GetHumanSide();
+        if (BoardManager.Instance != null)
+        {
+            BoardManager.Instance.RotateBoardForSide(humanSide);
+        }
+        // -----------------------------
 
         game = new Game();
         if (UIManager.Instance != null) UIManager.Instance.SetActivePromotionUI(false);
@@ -262,8 +288,8 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     public string SerializeGame()
     {
         return serializersByType.TryGetValue(selectedSerializationType, out IGameSerializer serializer)
-            ? serializer?.Serialize(game)
-            : null;
+          ? serializer?.Serialize(game)
+          : null;
     }
 
     public void LoadGame(string serializedGame)
@@ -327,11 +353,11 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
                 if (BoardManager.Instance != null) BoardManager.Instance.SetActiveAllPieces(true);
 
                 if (promotionUITaskCancellationTokenSource == null
-                    || promotionUITaskCancellationTokenSource.Token.IsCancellationRequested
+                  || promotionUITaskCancellationTokenSource.Token.IsCancellationRequested
                 ) { return false; }
 
                 promotionMove.SetPromotionPiece(
-                    PromotionUtil.GeneratePromotionPiece(choice, SideToMove)
+                  PromotionUtil.GeneratePromotionPiece(choice, SideToMove)
                 );
                 if (BoardManager.Instance != null)
                 {
@@ -390,7 +416,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         }
 
         if ((move is not SpecialMove specialMove || await TryHandleSpecialMoveBehaviourAsync(specialMove))
-            && TryExecuteMove(move)
+          && TryExecuteMove(move)
         )
         {
             if (move is not SpecialMove && BoardManager.Instance != null) { BoardManager.Instance.TryDestroyVisualPiece(move.End); }
@@ -421,14 +447,14 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         }
 
         bool gameIsOver = game.HalfMoveTimeline.TryGetCurrent(out HalfMove tailHalfMove)
-             && (tailHalfMove.CausedStalemate || tailHalfMove.CausedCheckmate);
+          && (tailHalfMove.CausedStalemate || tailHalfMove.CausedCheckmate);
 
         if (BoardManager.Instance != null)
             BoardManager.Instance.EnsureOnlyPiecesOfSideAreEnabled(SideToMove);
 
         if (!gameIsOver
-            && (SideToMove == Side.White && isWhiteAI
-              || SideToMove == Side.Black && isBlackAI)
+          && (SideToMove == Side.White && isWhiteAI
+            || SideToMove == Side.Black && isBlackAI)
         )
         {
             Movement bestMove = await uciEngine.GetBestMove(aiThinkTimeMs);
@@ -441,10 +467,10 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         GameObject movedPiece = BoardManager.Instance.GetPieceGOAtPosition(move.Start);
         GameObject endSquareGO = BoardManager.Instance.GetSquareGOByPosition(move.End);
         OnPieceMoved(
-            move.Start,
-            movedPiece.transform,
-            endSquareGO.transform,
-            (move as PromotionMove)?.PromotionPiece
+          move.Start,
+          movedPiece.transform,
+          endSquareGO.transform,
+          (move as PromotionMove)?.PromotionPiece
         );
 
         if (BoardManager.Instance != null)

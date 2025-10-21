@@ -36,19 +36,18 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
     private Timeline<FullMoveUI> moveUITimeline;
     private Color buttonColor;
 
-    // HÀM MỚI: XÁC ĐỊNH BÊN MÀ NGƯỜI CHƠI CẦM
+    // HÀM ĐÃ SỬA: XÁC ĐỊNH BÊN MÀ NGƯỜI CHƠI CẦM
     private Side GetPlayerSide()
     {
-        // 1. Lấy GameMode đã thiết lập trong MainMenu
         string gameMode = PlayerPrefs.GetString("GameMode", "PlayerVsPlayer");
 
-        if (gameMode == "PlayerVsAI_Black")
+        if (gameMode == "PlayerVsAI_White")
         {
-            // Người chơi cầm Đen khi đấu AI
+            // Người chơi cầm Đen (để đấu với AI Trắng)
             return Side.Black;
         }
 
-        // Mặc định hoặc PlayerVsPlayer hoặc PlayerVsAI_White: Người chơi cầm Trắng
+        // Mặc định, PlayerVsPlayer, hoặc PlayerVsAI_Black: Người chơi cầm Trắng
         return Side.White;
     }
 
@@ -122,9 +121,17 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         SetBoardInteraction(true);
     }
 
+    // HÀM ĐÃ SỬA LỖI CS0019 (Dòng 128)
     private void OnGameEnded()
     {
-        GameManager.Instance.HalfMoveTimeline.TryGetCurrent(out HalfMove latestHalfMove);
+        // Loại bỏ điều kiện || latestHalfMove == null vì HalfMove là struct
+        if (GameManager.Instance.HalfMoveTimeline == null || !GameManager.Instance.HalfMoveTimeline.TryGetCurrent(out HalfMove latestHalfMove))
+        {
+            if (gameStatusText != null) gameStatusText.text = "Game Ended (Unknown Result/Error)";
+            SetBoardInteraction(false);
+            return;
+        }
+
         Side playerSide = GetPlayerSide(); // Lấy bên người chơi
 
         if (latestHalfMove.CausedCheckmate)
@@ -177,8 +184,12 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
             turnIndicatorText.text = sideToMove == Side.White ? "White's Turn" : "Black's Turn";
         }
 
+        // Thêm kiểm tra null
+        if (GameManager.Instance.HalfMoveTimeline == null || !GameManager.Instance.HalfMoveTimeline.TryGetCurrent(out HalfMove lastMove))
+        {
+            return;
+        }
 
-        GameManager.Instance.HalfMoveTimeline.TryGetCurrent(out HalfMove lastMove);
         AddMoveToHistory(lastMove, sideToMove.Complement());
 
         if (gameStatusText != null)
@@ -205,6 +216,9 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
     private void OnGameResetToHalfMove()
     {
         UpdateGameStringInputField();
+        // Thêm kiểm tra null
+        if (GameManager.Instance.HalfMoveTimeline == null) return;
+
         moveUITimeline.HeadIndex = GameManager.Instance.LatestHalfMoveIndex / 2;
         ValidateIndicators();
     }
@@ -223,13 +237,22 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
     public void ResetGameToPreviousHalfMove() => GameManager.Instance.ResetGameToHalfMoveIndex(Math.Max(0, GameManager.Instance.LatestHalfMoveIndex - 1));
 
-    public void ResetGameToNextHalfMove() => GameManager.Instance.ResetGameToHalfMoveIndex(Math.Min(GameManager.Instance.LatestHalfMoveIndex + 1, GameManager.Instance.HalfMoveTimeline.Count - 1));
+    public void ResetGameToNextHalfMove()
+    {
+        // Thêm kiểm tra null
+        int maxIndex = (GameManager.Instance.HalfMoveTimeline?.Count ?? 1) - 1;
+        GameManager.Instance.ResetGameToHalfMoveIndex(Math.Min(GameManager.Instance.LatestHalfMoveIndex + 1, maxIndex));
+    }
 
-    public void ResetGameToLastHalfMove() => GameManager.Instance.ResetGameToHalfMoveIndex(GameManager.Instance.HalfMoveTimeline.Count - 1);
+    public void ResetGameToLastHalfMove()
+    {
+        // Thêm kiểm tra null
+        int maxIndex = (GameManager.Instance.HalfMoveTimeline?.Count ?? 1) - 1;
+        GameManager.Instance.ResetGameToHalfMoveIndex(maxIndex);
+    }
 
     public void StartNewGame() => GameManager.Instance.RestartWithCurrentMode();
 
-    // HÀM LoadGame ĐÃ ĐƯỢC SỬA LỖI (Dòng 236)
     public void LoadGame()
     {
         if (GameStringInputField == null)
@@ -306,34 +329,43 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         }
     }
 
+    // HÀM ĐÃ SỬA LỖI CS0019 (Dòng 339)
     private void RemoveAlternateHistory()
     {
         if (!moveUITimeline.IsUpToDate)
         {
-            GameManager.Instance.HalfMoveTimeline.TryGetCurrent(out HalfMove lastHalfMove);
-            // Cập nhật trạng thái hiển thị ảnh kết quả khi quay lại lịch sử
-            if (lastHalfMove.CausedCheckmate)
+            // Loại bỏ điều kiện || lastHalfMove == null vì HalfMove là struct
+            if (GameManager.Instance.HalfMoveTimeline == null || !GameManager.Instance.HalfMoveTimeline.TryGetCurrent(out HalfMove lastHalfMove))
             {
-                Side winner = lastHalfMove.Piece.Owner;
-                Side playerSide = GetPlayerSide();
-
-                if (winner == playerSide)
-                {
-                    SetResultImageActive(true, false, false); // Win
-                }
-                else
-                {
-                    SetResultImageActive(false, true, false); // Lose
-                }
-            }
-            else if (lastHalfMove.CausedStalemate)
-            {
-                SetResultImageActive(false, false, true); // Draw
+                SetResultImageActive(false, false, false);
             }
             else
             {
-                SetResultImageActive(false, false, false); // Không hiển thị gì khác
+                // Cập nhật trạng thái hiển thị ảnh kết quả khi quay lại lịch sử
+                if (lastHalfMove.CausedCheckmate)
+                {
+                    Side winner = lastHalfMove.Piece.Owner;
+                    Side playerSide = GetPlayerSide();
+
+                    if (winner == playerSide)
+                    {
+                        SetResultImageActive(true, false, false); // Win
+                    }
+                    else
+                    {
+                        SetResultImageActive(false, true, false); // Lose
+                    }
+                }
+                else if (lastHalfMove.CausedStalemate)
+                {
+                    SetResultImageActive(false, false, true); // Draw
+                }
+                else
+                {
+                    SetResultImageActive(false, false, false); // Không hiển thị gì khác
+                }
             }
+
 
             List<FullMoveUI> divergentFullMoveUIs = moveUITimeline.PopFuture();
             foreach (FullMoveUI divergentFullMoveUI in divergentFullMoveUIs)
@@ -393,8 +425,9 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         else
         {
             // Khi tiếp tục, kiểm tra lại trạng thái game đã kết thúc chưa
-            if (GameManager.Instance.HalfMoveTimeline.TryGetCurrent(out HalfMove latestHalfMove))
+            if (GameManager.Instance.HalfMoveTimeline != null && GameManager.Instance.HalfMoveTimeline.TryGetCurrent(out HalfMove latestHalfMove))
             {
+                // HalfMove là struct, không cần kiểm tra != null
                 if (latestHalfMove.CausedCheckmate || latestHalfMove.CausedStalemate)
                 {
                     OnGameEnded();
@@ -406,6 +439,7 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         SetBoardInteraction(!isPaused);
     }
 
+    // HÀM ĐÃ SỬA: OnResignButtonClicked()
     public void OnResignButtonClicked()
     {
         // Kiểm tra xem đã có kết quả chưa
@@ -416,20 +450,23 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
             return;
         }
 
-        Side sideToMove = GameManager.Instance.SideToMove;
+        // Bên đang đi (sideToMove) là bên xin thua
+        Side sideToResign = GameManager.Instance.SideToMove;
         Side playerSide = GetPlayerSide(); // Lấy bên người chơi
 
-        // Bên vừa đi nước cuối cùng (bên thắng) là bên còn lại
-        Side winner = sideToMove.Complement();
+        // Bên thắng là bên còn lại
+        Side winner = sideToResign.Complement();
 
-        if (winner == playerSide)
+        if (playerSide == sideToResign)
         {
-            SetResultImageActive(false, true, false); // Người chơi THUA (vì đối thủ thắng)
+            // NGƯỜI CHƠI TỰ XIN THUA
+            SetResultImageActive(false, true, false); // Người chơi THUA
             if (gameStatusText != null) gameStatusText.text = $"You Resigned. Game Over (You Lose)";
         }
         else
         {
-            SetResultImageActive(true, false, false); // Người chơi THẮNG (vì đối thủ đang cầm bên 'sideToMove' và bên đó xin thua)
+            // ĐỐI THỦ XIN THUA (Áp dụng cho PvAI)
+            SetResultImageActive(true, false, false); // Người chơi THẮNG (vì đối thủ xin thua)
             if (gameStatusText != null) gameStatusText.text = $"Opponent Resigned. Game Over (You Win)";
         }
 
@@ -461,10 +498,11 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
     }
 
 
+    // HÀM ĐÃ SỬA LỖI CS0019 (Dòng 508)
     private void SetBoardInteraction(bool active)
     {
-        // Chỉ cần gọi hàm này khi không phải là game over
-        if (GameManager.Instance.HalfMoveTimeline.TryGetCurrent(out HalfMove latestHalfMove)
+        // Loại bỏ && latestHalfMove != null vì HalfMove là struct
+        if (GameManager.Instance.HalfMoveTimeline != null && GameManager.Instance.HalfMoveTimeline.TryGetCurrent(out HalfMove latestHalfMove)
             && (latestHalfMove.CausedCheckmate || latestHalfMove.CausedStalemate))
         {
             // Không bật lại tương tác nếu game đã kết thúc
