@@ -4,20 +4,22 @@ using UnityChess;
 using UnityEngine;
 using static UnityChess.SquareUtil;
 
-public class BoardManager : MonoBehaviourSingleton<BoardManager> {
-	private readonly GameObject[] allSquaresGO = new GameObject[64];
-	private Dictionary<Square, GameObject> positionMap;
-	private const float BoardPlaneSideLength = 14f; // measured from corner square center to corner square center, on same side.
-	private const float BoardPlaneSideHalfLength = BoardPlaneSideLength * 0.5f;
-	private const float BoardHeight = 1.6f;
-	private readonly System.Random rng = new System.Random();
+public class BoardManager : MonoBehaviourSingleton<BoardManager>
+{
+    private readonly GameObject[] allSquaresGO = new GameObject[64];
+    private Dictionary<Square, GameObject> positionMap;
+    private const float BoardPlaneSideLength = 14f; // measured from corner square center to corner square center, on same side.
+    private const float BoardPlaneSideHalfLength = BoardPlaneSideLength * 0.5f;
+    private const float BoardHeight = 1.6f;
+    private readonly System.Random rng = new System.Random();
     [Header("Captured Pieces UI")]
     public CapturedPiecesUI capturedPiecesUI; // Kéo UIManager vào đây trong Inspector
 
 
-    private void Awake() {
-		GameManager.NewGameStartedEvent += OnNewGameStarted;
-		GameManager.GameResetToHalfMoveEvent += OnGameResetToHalfMove;
+    private void Awake()
+    {
+        GameManager.NewGameStartedEvent += OnNewGameStarted;
+        GameManager.GameResetToHalfMoveEvent += OnGameResetToHalfMove;
 
         if (capturedPiecesUI != null)
         {
@@ -28,28 +30,33 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager> {
         }
 
         positionMap = new Dictionary<Square, GameObject>(64);
-		Transform boardTransform = transform;
-		Vector3 boardPosition = boardTransform.position;
-		
-		for (int file = 1; file <= 8; file++) {
-			for (int rank = 1; rank <= 8; rank++) {
-				GameObject squareGO = new GameObject(SquareToString(file, rank)) {
-					transform = {
-						position = new Vector3(boardPosition.x + FileOrRankToSidePosition(file), boardPosition.y + BoardHeight, boardPosition.z + FileOrRankToSidePosition(rank)),
-						parent = boardTransform
-					},
-					tag = "Square"
-				};
+        Transform boardTransform = transform; // Lấy Transform của BoardManager (phải là BoardRoot)
+        Vector3 boardPosition = boardTransform.position;
 
-				positionMap.Add(new Square(file, rank), squareGO);
-				allSquaresGO[(file - 1) * 8 + (rank - 1)] = squareGO;
-			}
-		}
-	}
+        for (int file = 1; file <= 8; file++)
+        {
+            for (int rank = 1; rank <= 8; rank++)
+            {
+                GameObject squareGO = new GameObject(SquareToString(file, rank))
+                {
+                    transform = {
+                        position = new Vector3(boardPosition.x + FileOrRankToSidePosition(file), boardPosition.y + BoardHeight, boardPosition.z + FileOrRankToSidePosition(rank)),
+                        parent = boardTransform // Đảm bảo tất cả ô cờ là con của BoardRoot
+					},
+                    tag = "Square"
+                };
+
+                positionMap.Add(new Square(file, rank), squareGO);
+                allSquaresGO[(file - 1) * 8 + (rank - 1)] = squareGO;
+            }
+        }
+    }
 
     private void OnNewGameStarted()
     {
         if (this == null) return;
+        // Logic xoay bàn cờ đã được gọi trước đó trong GameManager.StartNewGame()
+
         // 1. Clear all VisualPieces
         ClearBoard();
 
@@ -95,11 +102,12 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager> {
     }
 
 
-    public void CastleRook(Square rookPosition, Square endSquare) {
-		GameObject rookGO = GetPieceGOAtPosition(rookPosition);
-		rookGO.transform.parent = GetSquareGOByPosition(endSquare).transform;
-		rookGO.transform.localPosition = Vector3.zero;
-	}
+    public void CastleRook(Square rookPosition, Square endSquare)
+    {
+        GameObject rookGO = GetPieceGOAtPosition(rookPosition);
+        rookGO.transform.parent = GetSquareGOByPosition(endSquare).transform;
+        rookGO.transform.localPosition = Vector3.zero;
+    }
 
     public void CreateAndPlacePieceGO(Piece piece, Square position)
     {
@@ -109,13 +117,7 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager> {
             positionMap[position].transform
         );
 
-        // Tuỳ chọn: xoay ngẫu nhiên nếu muốn cho tự nhiên
-        /*
-        if (!(piece is Knight) && !(piece is King))
-        {
-            pieceGO.transform.Rotate(0f, UnityEngine.Random.Range(0f, 360f), 0f);
-        }
-        */
+        // Giữ nguyên localRotation, nó sẽ tự động được xoay cùng BoardRoot
         pieceGO.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
 
         VisualPiece visualPiece = pieceGO.GetComponent<VisualPiece>();
@@ -128,26 +130,31 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager> {
     }
 
 
-    public void GetSquareGOsWithinRadius(List<GameObject> squareGOs, Vector3 positionWS, float radius) {
-		float radiusSqr = radius * radius;
-		foreach (GameObject squareGO in allSquaresGO) {
-			if ((squareGO.transform.position - positionWS).sqrMagnitude < radiusSqr)
-				squareGOs.Add(squareGO);
-		}
-	}
+    public void GetSquareGOsWithinRadius(List<GameObject> squareGOs, Vector3 positionWS, float radius)
+    {
+        float radiusSqr = radius * radius;
+        foreach (GameObject squareGO in allSquaresGO)
+        {
+            if ((squareGO.transform.position - positionWS).sqrMagnitude < radiusSqr)
+                squareGOs.Add(squareGO);
+        }
+    }
 
-	public void SetActiveAllPieces(bool active) {
-		VisualPiece[] visualPiece = GetComponentsInChildren<VisualPiece>(true);
-		foreach (VisualPiece pieceBehaviour in visualPiece) pieceBehaviour.enabled = active;
-	}
+    public void SetActiveAllPieces(bool active)
+    {
+        VisualPiece[] visualPiece = GetComponentsInChildren<VisualPiece>(true);
+        foreach (VisualPiece pieceBehaviour in visualPiece) pieceBehaviour.enabled = active;
+    }
 
-	public void EnsureOnlyPiecesOfSideAreEnabled(Side side) {
-		VisualPiece[] visualPiece = GetComponentsInChildren<VisualPiece>(true);
-		foreach (VisualPiece pieceBehaviour in visualPiece) {
-			// Temporarily enable all pieces of the current side to move, regardless of legal moves
-			pieceBehaviour.enabled = pieceBehaviour.PieceColor == side; 
-		}
-	}
+    public void EnsureOnlyPiecesOfSideAreEnabled(Side side)
+    {
+        VisualPiece[] visualPiece = GetComponentsInChildren<VisualPiece>(true);
+        foreach (VisualPiece pieceBehaviour in visualPiece)
+        {
+            // Temporarily enable all pieces of the current side to move, regardless of legal moves
+            pieceBehaviour.enabled = pieceBehaviour.PieceColor == side;
+        }
+    }
 
     public void TryDestroyVisualPiece(Square position)
     {
@@ -176,6 +183,7 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager> {
 
     public void FixAllPieceRotations()
     {
+        // Giữ nguyên local rotation
         foreach (var vp in GetComponentsInChildren<VisualPiece>(true))
         {
             vp.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
@@ -183,25 +191,45 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager> {
     }
 
 
+    // HÀM MỚI: XOAY BÀN CỜ VẬT LÝ
+    public void RotateBoardForSide(Side side)
+    {
+        // BoardManager.transform là BoardRoot
+        if (side == Side.Black)
+        {
+            // Xoay 180 độ khi người chơi là Đen (để Đen ở phía dưới)
+            transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+        }
+        else
+        {
+            // Giữ nguyên (0 độ) cho người chơi Trắng
+            transform.rotation = Quaternion.identity;
+        }
+    }
 
-    public GameObject GetPieceGOAtPosition(Square position) {
-		GameObject square = GetSquareGOByPosition(position);
-		return square.transform.childCount == 0 ? null : square.transform.GetChild(0).gameObject;
-	}
-	
-	private static float FileOrRankToSidePosition(int index) {
-		float t = (index - 1) / 7f;
-		return Mathf.Lerp(-BoardPlaneSideHalfLength, BoardPlaneSideHalfLength, t);
-	}
-	
-	private void ClearBoard() {
+
+    public GameObject GetPieceGOAtPosition(Square position)
+    {
+        GameObject square = GetSquareGOByPosition(position);
+        return square.transform.childCount == 0 ? null : square.transform.GetChild(0).gameObject;
+    }
+
+    private static float FileOrRankToSidePosition(int index)
+    {
+        float t = (index - 1) / 7f;
+        return Mathf.Lerp(-BoardPlaneSideHalfLength, BoardPlaneSideHalfLength, t);
+    }
+
+    private void ClearBoard()
+    {
         if (this == null) return;
         VisualPiece[] visualPiece = GetComponentsInChildren<VisualPiece>(true);
 
-        foreach (VisualPiece pieceBehaviour in visualPiece) {
-			DestroyImmediate(pieceBehaviour.gameObject);
-		}
-	}
+        foreach (VisualPiece pieceBehaviour in visualPiece)
+        {
+            DestroyImmediate(pieceBehaviour.gameObject);
+        }
+    }
 
     private void OnDestroy()
     {
