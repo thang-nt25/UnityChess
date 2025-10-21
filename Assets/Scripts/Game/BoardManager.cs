@@ -144,10 +144,8 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager> {
 	public void EnsureOnlyPiecesOfSideAreEnabled(Side side) {
 		VisualPiece[] visualPiece = GetComponentsInChildren<VisualPiece>(true);
 		foreach (VisualPiece pieceBehaviour in visualPiece) {
-			Piece piece = GameManager.Instance.CurrentBoard[pieceBehaviour.CurrentSquare];
-			
-			pieceBehaviour.enabled = pieceBehaviour.PieceColor == side
-			                         && GameManager.Instance.HasLegalMoves(piece);
+			// Temporarily enable all pieces of the current side to move, regardless of legal moves
+			pieceBehaviour.enabled = pieceBehaviour.PieceColor == side; 
 		}
 	}
 

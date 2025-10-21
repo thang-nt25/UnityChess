@@ -30,8 +30,39 @@ public class VisualPiece : MonoBehaviour
 
     public void OnMouseDown()
     {
+        Debug.Log($"[VisualPiece] OnMouseDown triggered. Enabled: {enabled}");
         if (enabled)
         {
+            if (this.piece == null)
+            {
+                Debug.LogError($"[VisualPiece] Piece object is null for {gameObject.name}");
+                return;
+            }
+            if (GameManager.Instance == null)
+            {
+                Debug.LogError("[VisualPiece] GameManager.Instance is null.");
+                return;
+            }
+            if (GameManager.Instance.GameInstance == null)
+            {
+                Debug.LogError("[VisualPiece] GameManager.Instance.GameInstance is null.");
+                return;
+            }
+
+            Debug.Log($"[VisualPiece] OnMouseDown called for {this.piece.GetType().Name} at {CurrentSquare}. PieceColor: {PieceColor}, SideToMove: {GameManager.Instance.SideToMove}");
+            HighlightManager.Instance.ClearHighlights(); // Clear any previous highlights
+
+            Piece currentPieceOnBoard = GameManager.Instance.CurrentBoard[CurrentSquare];
+            if (currentPieceOnBoard != null && GameManager.Instance.GameInstance.TryGetLegalMovesForPiece(currentPieceOnBoard, out ICollection<Movement> legalMoves))
+            {
+                Debug.Log($"[VisualPiece] Found {legalMoves.Count} legal moves for {currentPieceOnBoard.GetType().Name} at {CurrentSquare}.");
+                HighlightManager.Instance.ShowHighlights(legalMoves, currentPieceOnBoard.Owner); // Pass the owner of the piece
+            }
+            else
+            {
+                Debug.Log($"[VisualPiece] No legal moves found for {this.piece.GetType().Name} at {CurrentSquare} (or piece is null on board).");
+            }
+
             piecePositionSS = boardCamera.WorldToScreenPoint(transform.position);
 
         }
@@ -50,6 +81,8 @@ public class VisualPiece : MonoBehaviour
     {
         if (enabled)
         {
+            HighlightManager.Instance.ClearHighlights(); // Clear highlights after interaction
+
             potentialLandingSquares.Clear();
             BoardManager.Instance.GetSquareGOsWithinRadius(potentialLandingSquares, thisTransform.position, SquareCollisionRadius);
 

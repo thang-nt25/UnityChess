@@ -85,6 +85,8 @@ public class GameManager : MonoBehaviourSingleton<GameManager> {
 		}
 	}
 
+    public Game GameInstance => game; // Added this line
+
 	public Side SideToMove {
 		get {
 			game.ConditionsTimeline.TryGetCurrent(out GameConditions currentConditions);
@@ -234,7 +236,10 @@ public class GameManager : MonoBehaviourSingleton<GameManager> {
 	}
 
 	private bool TryExecuteMove(Movement move) {
-		if (!game.TryExecuteMove(move)) {
+        bool moveSuccessful = game.TryExecuteMove(move);
+        Debug.Log($"[GameManager] TryExecuteMove: Move {move} successful? {moveSuccessful}. New SideToMove: {SideToMove}");
+
+		if (!moveSuccessful) {
 			return false;
 		}
 
@@ -311,6 +316,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager> {
 	}
 
 	private async void OnPieceMoved(Square movedPieceInitialSquare, Transform movedPieceTransform, Transform closestBoardSquareTransform, Piece promotionPiece = null) {
+        Debug.Log($"[GameManager] OnPieceMoved: Initial Square: {movedPieceInitialSquare}, End Square: {closestBoardSquareTransform.name}. CurrentBoard: {CurrentBoard}, SideToMove: {SideToMove}");
 		Square endSquare = new Square(closestBoardSquareTransform.name);
 
 		if (!game.TryGetLegalMove(movedPieceInitialSquare, endSquare, out Movement move)) {
