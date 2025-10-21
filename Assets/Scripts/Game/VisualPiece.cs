@@ -9,7 +9,7 @@ public class VisualPiece : MonoBehaviour
     public static event VisualPieceMovedAction VisualPieceMoved;
 
     public Side PieceColor;
-    public Piece piece; // <-- Thêm reference tới Piece thật
+    public Piece piece;
     public string PieceTypeManual;
 
     public Square CurrentSquare => StringToSquare(transform.parent.name);
@@ -43,20 +43,24 @@ public class VisualPiece : MonoBehaviour
                 Debug.LogError("[VisualPiece] GameManager.Instance is null.");
                 return;
             }
-            if (GameManager.Instance.GameInstance == null)
+
+            if (GameManager.Instance.CurrentBoard == null)
             {
-                Debug.LogError("[VisualPiece] GameManager.Instance.GameInstance is null.");
+                Debug.LogError("[VisualPiece] Game is not properly initialized. CurrentBoard is null.");
                 return;
             }
 
             Debug.Log($"[VisualPiece] OnMouseDown called for {this.piece.GetType().Name} at {CurrentSquare}. PieceColor: {PieceColor}, SideToMove: {GameManager.Instance.SideToMove}");
-            HighlightManager.Instance.ClearHighlights(); // Clear any previous highlights
+            HighlightManager.Instance.ClearHighlights();
 
             Piece currentPieceOnBoard = GameManager.Instance.CurrentBoard[CurrentSquare];
-            if (currentPieceOnBoard != null && GameManager.Instance.GameInstance.TryGetLegalMovesForPiece(currentPieceOnBoard, out ICollection<Movement> legalMoves))
+            ICollection<Movement> legalMoves = null; // Khởi tạo để sửa lỗi CS0165
+
+            // Sửa lỗi CS1061: Truy cập logic game thông qua phương thức public TryGetLegalMoves
+            if (currentPieceOnBoard != null && GameManager.Instance.TryGetLegalMoves(currentPieceOnBoard, out legalMoves))
             {
                 Debug.Log($"[VisualPiece] Found {legalMoves.Count} legal moves for {currentPieceOnBoard.GetType().Name} at {CurrentSquare}.");
-                HighlightManager.Instance.ShowHighlights(legalMoves, currentPieceOnBoard.Owner); // Pass the owner of the piece
+                HighlightManager.Instance.ShowHighlights(legalMoves, currentPieceOnBoard.Owner);
             }
             else
             {
@@ -81,7 +85,7 @@ public class VisualPiece : MonoBehaviour
     {
         if (enabled)
         {
-            HighlightManager.Instance.ClearHighlights(); // Clear highlights after interaction
+            HighlightManager.Instance.ClearHighlights();
 
             potentialLandingSquares.Clear();
             BoardManager.Instance.GetSquareGOsWithinRadius(potentialLandingSquares, thisTransform.position, SquareCollisionRadius);
@@ -129,5 +133,4 @@ public class VisualPiece : MonoBehaviour
             return PieceTypeManual ?? "Unknown";
         }
     }
-
 }
