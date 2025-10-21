@@ -5904,12 +5904,12 @@ PrefabInstance:
         type: 3}
       propertyPath: sfxMove
       value: 
-      objectReference: {fileID: 8300000, guid: b217ed87b8b92144290ad9f371f5e615, type: 3}
+      objectReference: {fileID: 8300000, guid: ac5f0b230f3b9a44b848260db54763bb, type: 3}
     - target: {fileID: 7463109367895200373, guid: caf93e4ddc2f0544cbddf4e2facb7fd7,
         type: 3}
       propertyPath: sfxCheck
       value: 
-      objectReference: {fileID: 8300000, guid: 0693e2b05b59e03479d8aa00dd77b26b, type: 3}
+      objectReference: {fileID: 8300000, guid: 59e73eba746e7c14b8525ea7f3fa29a8, type: 3}
     - target: {fileID: 7463109367895200373, guid: caf93e4ddc2f0544cbddf4e2facb7fd7,
         type: 3}
       propertyPath: aiThinkTimeMs
