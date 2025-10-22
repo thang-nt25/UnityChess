@@ -1,6 +1,7 @@
-using System.Collections;
+﻿using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using static GameManager;
 
 public class MainMenu : MonoBehaviour
 {
@@ -14,14 +15,34 @@ public class MainMenu : MonoBehaviour
     public GameObject mainButtonsContainer;
     public GameObject playModePopup;
 
+    // Các Popup để chọn cấp độ khó
+    public GameObject whiteAIDifficultyPopup;
+    public GameObject blackAIDifficultyPopup;
+
     private string gameSceneName = "Board";
 
     private void Awake()
     {
+        // **QUAN TRỌNG: THÊM DÒNG NÀY ĐỂ XÓA KEY LỖI THỜI CŨ (CHỈ CHẠY MỘT LẦN)**
+        PlayerPrefs.DeleteKey("PlayerIsWhiteKey");
+        PlayerPrefs.DeleteKey("PlayerIsWhite");
+        // ----------------------------------------------------------------------
+
         EnsureMusicSource();
         PlayMenuBgm();
+
+        // Đảm bảo tất cả các popup độ khó đều ẩn khi Awake
         if (playModePopup != null) playModePopup.SetActive(false);
+        if (whiteAIDifficultyPopup != null) whiteAIDifficultyPopup.SetActive(false);
+        if (blackAIDifficultyPopup != null) blackAIDifficultyPopup.SetActive(false);
         if (mainButtonsContainer != null) mainButtonsContainer.SetActive(true);
+    }
+
+    private void OnApplicationQuit()
+    {
+        PlayerPrefs.DeleteKey("GameMode");
+        PlayerPrefs.DeleteKey("WhiteAIDifficulty");
+        PlayerPrefs.DeleteKey("BlackAIDifficulty");
     }
 
     private void EnsureMusicSource()
@@ -62,6 +83,8 @@ public class MainMenu : MonoBehaviour
     {
         if (musicSource != null && musicSource.isPlaying)
             yield return StartCoroutine(FadeOutAndStop());
+
+        PlayerPrefs.Save();
         SceneManager.LoadScene(sceneName);
     }
 
@@ -71,9 +94,13 @@ public class MainMenu : MonoBehaviour
             yield return StartCoroutine(FadeOutAndStop());
 
         PlayerPrefs.DeleteKey("GameMode");
+        PlayerPrefs.DeleteKey("WhiteAIDifficulty");
+        PlayerPrefs.DeleteKey("BlackAIDifficulty");
 
         Application.Quit();
     }
+
+    // --- Quản lý UI Popups ---
 
     public void ShowPlayModePopup()
     {
@@ -85,26 +112,94 @@ public class MainMenu : MonoBehaviour
     {
         playModePopup.SetActive(false);
         mainButtonsContainer.SetActive(true);
+        if (whiteAIDifficultyPopup != null) whiteAIDifficultyPopup.SetActive(false);
+        if (blackAIDifficultyPopup != null) blackAIDifficultyPopup.SetActive(false);
     }
+
+    // GỌI KHI NHẤN "P vs AI (Trắng)"
+    public void ShowWhiteAIDifficultyPopup()
+    {
+        if (playModePopup != null) playModePopup.SetActive(false);
+        if (whiteAIDifficultyPopup != null) whiteAIDifficultyPopup.SetActive(true);
+        // Lưu chế độ chơi: Human (Đen) vs AI (Trắng)
+        PlayerPrefs.SetString("GameMode", AIMode.HumanVsAI_White.ToString());
+
+        PlayerPrefs.DeleteKey("BlackAIDifficulty");
+    }
+
+    // QUAY LẠI TỪ POPUP AI TRẮNG
+    public void HideWhiteAIDifficultyPopup()
+    {
+        if (whiteAIDifficultyPopup != null) whiteAIDifficultyPopup.SetActive(false);
+        if (playModePopup != null) playModePopup.SetActive(true);
+    }
+
+    // GỌI KHI NHẤN "P vs AI (Đen)"
+    public void ShowBlackAIDifficultyPopup()
+    {
+        if (playModePopup != null) playModePopup.SetActive(false);
+        if (blackAIDifficultyPopup != null) blackAIDifficultyPopup.SetActive(true);
+        // Lưu chế độ chơi: Human (Trắng) vs AI (Đen)
+        PlayerPrefs.SetString("GameMode", AIMode.HumanVsAI_Black.ToString());
+
+        PlayerPrefs.DeleteKey("WhiteAIDifficulty");
+    }
+
+    // QUAY LẠI TỪ POPUP AI ĐEN
+    public void HideBlackAIDifficultyPopup()
+    {
+        if (blackAIDifficultyPopup != null) blackAIDifficultyPopup.SetActive(false);
+        if (playModePopup != null) playModePopup.SetActive(true);
+    }
+
+    // GỌI KHI NHẤN "AI vs AI"
+    public void ShowWhiteAIDifficultyPopup_AIVsAI()
+    {
+        if (playModePopup != null) playModePopup.SetActive(false);
+        if (whiteAIDifficultyPopup != null) whiteAIDifficultyPopup.SetActive(true);
+        // Lưu chế độ chơi: AI vs AI 
+        PlayerPrefs.SetString("GameMode", AIMode.AIVsAI.ToString());
+    }
+
+    // --- Hàm lưu cấp độ khó và khởi động game ---
+
+    // HÀM LƯU CẤP ĐỘ AI TRẮNG VÀ BẮT ĐẦU HOẶC CHUYỂN TIẾP
+    public void SetWhiteAIDifficultyAndContinue(int difficulty)
+    {
+        PlayerPrefs.SetInt("WhiteAIDifficulty", difficulty);
+
+        string mode = PlayerPrefs.GetString("GameMode", AIMode.HumanVsHuman.ToString());
+
+        if (mode == AIMode.AIVsAI.ToString())
+        {
+            // Nếu là AI vs AI, chuyển sang chọn cấp độ AI Đen
+            if (whiteAIDifficultyPopup != null) whiteAIDifficultyPopup.SetActive(false);
+            if (blackAIDifficultyPopup != null) blackAIDifficultyPopup.SetActive(true);
+        }
+        else
+        {
+            // Nếu là Human vs AI Trắng, bắt đầu game
+            StartCoroutine(FadeThenLoad(gameSceneName));
+        }
+    }
+
+    // HÀM LƯU CẤP ĐỘ AI ĐEN VÀ KHỞI ĐỘNG GAME (Dùng cho cả P vs AI Black và AI vs AI)
+    public void SetBlackAIDifficultyAndStart(int difficulty)
+    {
+        PlayerPrefs.SetInt("BlackAIDifficulty", difficulty);
+        StartCoroutine(FadeThenLoad(gameSceneName));
+    }
+
+
+    // --- Hàm Khởi động Game trực tiếp ---
 
     public void StartPlayVsPlayer()
     {
-        PlayerPrefs.SetString("GameMode", "PlayerVsPlayer");
-        PlayerPrefs.Save();
-        StartCoroutine(FadeThenLoad(gameSceneName));
-    }
+        PlayerPrefs.SetString("GameMode", AIMode.HumanVsHuman.ToString());
 
-    public void StartPlayVsAI_White()
-    {
-        PlayerPrefs.SetString("GameMode", "PlayerVsAI_White");
-        PlayerPrefs.Save();
-        StartCoroutine(FadeThenLoad(gameSceneName));
-    }
+        PlayerPrefs.DeleteKey("WhiteAIDifficulty");
+        PlayerPrefs.DeleteKey("BlackAIDifficulty");
 
-    public void StartPlayVsAI_Black()
-    {
-        PlayerPrefs.SetString("GameMode", "PlayerVsAI_Black");
-        PlayerPrefs.Save();
         StartCoroutine(FadeThenLoad(gameSceneName));
     }
 

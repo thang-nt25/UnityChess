@@ -8,18 +8,22 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager>
 {
     private readonly GameObject[] allSquaresGO = new GameObject[64];
     private Dictionary<Square, GameObject> positionMap;
-    private const float BoardPlaneSideLength = 14f; // measured from corner square center to corner square center, on same side.
+
+    private const float BoardPlaneSideLength = 14f;
     private const float BoardPlaneSideHalfLength = BoardPlaneSideLength * 0.5f;
     private const float BoardHeight = 1.6f;
     private readonly System.Random rng = new System.Random();
+
     [Header("Captured Pieces UI")]
-    public CapturedPiecesUI capturedPiecesUI; // Kéo UIManager vào đây trong Inspector
+    public CapturedPiecesUI capturedPiecesUI;
 
 
     private void Awake()
     {
         GameManager.NewGameStartedEvent += OnNewGameStarted;
         GameManager.GameResetToHalfMoveEvent += OnGameResetToHalfMove;
+
+        InitializeSquareGameObjects();
 
         if (capturedPiecesUI != null)
         {
@@ -28,21 +32,30 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager>
             foreach (Transform child in capturedPiecesUI.blackArea)
                 Destroy(child.gameObject);
         }
+    }
 
+    private void InitializeSquareGameObjects()
+    {
         positionMap = new Dictionary<Square, GameObject>(64);
-        Transform boardTransform = transform; // Lấy Transform của BoardManager (phải là BoardRoot)
+        Transform boardTransform = transform;
         Vector3 boardPosition = boardTransform.position;
 
         for (int file = 1; file <= 8; file++)
         {
             for (int rank = 1; rank <= 8; rank++)
             {
+                Vector3 squarePosition = new Vector3(
+                    boardPosition.x + FileOrRankToSidePosition(file),
+                    boardPosition.y + BoardHeight,
+                    boardPosition.z + FileOrRankToSidePosition(rank)
+                );
+
                 GameObject squareGO = new GameObject(SquareToString(file, rank))
                 {
                     transform = {
-                        position = new Vector3(boardPosition.x + FileOrRankToSidePosition(file), boardPosition.y + BoardHeight, boardPosition.z + FileOrRankToSidePosition(rank)),
-                        parent = boardTransform // Đảm bảo tất cả ô cờ là con của BoardRoot
-					},
+                        position = squarePosition,
+                        parent = boardTransform
+                    },
                     tag = "Square"
                 };
 
@@ -52,15 +65,29 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager>
         }
     }
 
+
+    private Side GetPlayerSide()
+    {
+        return GameManager.Instance.GetHumanSide();
+    }
+
+    // ĐÃ SỬA: CHỈ XOAY BOARD CHA, KHÔNG XOAY CAMERA.
+    // Camera phải là con của Board cha để xoay theo.
+    public void RotateBoardForSide(Side side)
+    {
+        float targetYRotation = side == Side.White ? 0f : 180f;
+
+        // Xoay đối tượng Board (Board Manager gắn vào đây)
+        transform.rotation = Quaternion.Euler(0f, targetYRotation, 0f);
+    }
+
+
     private void OnNewGameStarted()
     {
         if (this == null) return;
-        // Logic xoay bàn cờ đã được gọi trước đó trong GameManager.StartNewGame()
 
-        // 1. Clear all VisualPieces
         ClearBoard();
 
-        // 2. Clear captured pieces UI
         if (capturedPiecesUI != null)
         {
             foreach (Transform child in capturedPiecesUI.whiteArea)
@@ -69,32 +96,22 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager>
                 Destroy(child.gameObject);
         }
 
-        foreach ((Square square, Piece piece) in GameManager.Instance.CurrentPieces)
+        // CHỈ DÙNG LOGICAL SQUARE (vì bàn cờ đã xoay vật lý)
+        List<(Square logicalSquare, Piece piece)> currentPieces = GameManager.Instance.CurrentPieces;
+
+        foreach ((Square logicalSquare, Piece piece) in currentPieces)
         {
-            CreateAndPlacePieceGO(piece, square);
+            CreateAndPlacePieceGOAtPhysicalSquare(piece, logicalSquare);
         }
 
         EnsureOnlyPiecesOfSideAreEnabled(GameManager.Instance.SideToMove);
     }
 
-
     private void OnGameResetToHalfMove()
     {
         if (this == null) return;
-        ClearBoard();
 
-        if (capturedPiecesUI != null)
-        {
-            foreach (Transform child in capturedPiecesUI.whiteArea)
-                Destroy(child.gameObject);
-            foreach (Transform child in capturedPiecesUI.blackArea)
-                Destroy(child.gameObject);
-        }
-
-        foreach ((Square square, Piece piece) in GameManager.Instance.CurrentPieces)
-        {
-            CreateAndPlacePieceGO(piece, square);
-        }
+        OnNewGameStarted();
 
         GameManager.Instance.HalfMoveTimeline.TryGetCurrent(out HalfMove latestHalfMove);
         if (latestHalfMove.CausedCheckmate || latestHalfMove.CausedStalemate) SetActiveAllPieces(false);
@@ -109,15 +126,20 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager>
         rookGO.transform.localPosition = Vector3.zero;
     }
 
-    public void CreateAndPlacePieceGO(Piece piece, Square position)
+    private void CreateAndPlacePieceGOAtPhysicalSquare(Piece piece, Square physicalPosition)
     {
+        if (!positionMap.TryGetValue(physicalPosition, out GameObject squareGO) || squareGO == null)
+        {
+            Debug.LogError($"[BoardManager] Could not find physical square GO for: {physicalPosition}");
+            return;
+        }
+
         string modelName = $"{piece.Owner} {piece.GetType().Name}";
         GameObject pieceGO = Instantiate(
             Resources.Load("PieceSets/Marble/" + modelName) as GameObject,
-            positionMap[position].transform
+            squareGO.transform
         );
 
-        // Giữ nguyên localRotation, nó sẽ tự động được xoay cùng BoardRoot
         pieceGO.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
 
         VisualPiece visualPiece = pieceGO.GetComponent<VisualPiece>();
@@ -125,8 +147,13 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager>
         {
             visualPiece.piece = piece;
             visualPiece.PieceColor = piece.Owner;
-            visualPiece.PieceTypeManual = piece.GetType().Name; // Rook, Knight, Bishop, Queen, Pawn
+            visualPiece.PieceTypeManual = piece.GetType().Name;
         }
+    }
+
+    public void CreateAndPlacePieceGO(Piece piece, Square logicalPosition)
+    {
+        CreateAndPlacePieceGOAtPhysicalSquare(piece, logicalPosition);
     }
 
 
@@ -151,20 +178,23 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager>
         VisualPiece[] visualPiece = GetComponentsInChildren<VisualPiece>(true);
         foreach (VisualPiece pieceBehaviour in visualPiece)
         {
-            // Temporarily enable all pieces of the current side to move, regardless of legal moves
             pieceBehaviour.enabled = pieceBehaviour.PieceColor == side;
         }
     }
 
-    public void TryDestroyVisualPiece(Square position)
+    public void TryDestroyVisualPiece(Square logicalPosition)
     {
         if (this == null) return;
-        if (!positionMap.TryGetValue(position, out GameObject squareGO) || squareGO == null) return;
+
+        Square physicalSquare = logicalPosition;
+
+        if (!positionMap.TryGetValue(physicalSquare, out GameObject squareGO) || squareGO == null) return;
+
         VisualPiece visualPiece = squareGO.GetComponentInChildren<VisualPiece>();
 
         if (visualPiece != null)
         {
-            VisualPiece visualPiece2 = positionMap[position].GetComponentInChildren<VisualPiece>();
+            VisualPiece visualPiece2 = squareGO.GetComponentInChildren<VisualPiece>();
             if (visualPiece2 != null)
             {
                 if (capturedPiecesUI != null)
@@ -175,7 +205,6 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager>
                     );
                 }
 
-                // Xoá quân cờ khỏi board
                 DestroyImmediate(visualPiece2.gameObject);
             }
         }
@@ -183,7 +212,6 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager>
 
     public void FixAllPieceRotations()
     {
-        // Giữ nguyên local rotation
         foreach (var vp in GetComponentsInChildren<VisualPiece>(true))
         {
             vp.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
@@ -191,27 +219,10 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager>
     }
 
 
-    // HÀM MỚI: XOAY BÀN CỜ VẬT LÝ
-    public void RotateBoardForSide(Side side)
+    public GameObject GetPieceGOAtPosition(Square logicalPosition)
     {
-        // BoardManager.transform là BoardRoot
-        if (side == Side.Black)
-        {
-            // Xoay 180 độ khi người chơi là Đen (để Đen ở phía dưới)
-            transform.rotation = Quaternion.Euler(0f, 180f, 0f);
-        }
-        else
-        {
-            // Giữ nguyên (0 độ) cho người chơi Trắng
-            transform.rotation = Quaternion.identity;
-        }
-    }
-
-
-    public GameObject GetPieceGOAtPosition(Square position)
-    {
-        GameObject square = GetSquareGOByPosition(position);
-        return square.transform.childCount == 0 ? null : square.transform.GetChild(0).gameObject;
+        GameObject square = GetSquareGOByPosition(logicalPosition);
+        return square != null && square.transform.childCount > 0 ? square.transform.GetChild(0).gameObject : null;
     }
 
     private static float FileOrRankToSidePosition(int index)
@@ -238,5 +249,16 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager>
     }
 
 
-    public GameObject GetSquareGOByPosition(Square position) => Array.Find(allSquaresGO, go => go.name == SquareToString(position));
+    public GameObject GetSquareGOByPosition(Square logicalPosition)
+    {
+        Square physicalSquare = logicalPosition;
+
+        if (positionMap.TryGetValue(physicalSquare, out GameObject squareGO))
+        {
+            return squareGO;
+        }
+
+        Debug.LogError($"Could not find mapped SquareGO for physical position: {SquareToString(physicalSquare)} (Logical: {SquareToString(logicalPosition)})");
+        return null;
+    }
 }
