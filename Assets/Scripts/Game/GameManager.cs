@@ -23,6 +23,8 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     private bool lastWhiteAI;
     private bool lastBlackAI;
     [SerializeField] private int aiThinkTimeMs = 5000;
+    // === Promotion flow controller ===
+    private TaskCompletionSource<ElectedPiece> promotionTcs = null;
 
     // --- ĐÃ XÓA BIẾN cameraRigTransform VÀ HEADER CAMERA ORIENTATION ---
 
@@ -330,35 +332,63 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         return true;
     }
 
+
     private async Task<bool> TryHandleSpecialMoveBehaviourAsync(SpecialMove specialMove)
     {
         switch (specialMove)
         {
             case CastlingMove castlingMove:
-                if (BoardManager.Instance != null) BoardManager.Instance.CastleRook(castlingMove.RookSquare, castlingMove.GetRookEndSquare());
+                if (BoardManager.Instance != null)
+                    BoardManager.Instance.CastleRook(castlingMove.RookSquare, castlingMove.GetRookEndSquare());
                 return true;
+
             case EnPassantMove enPassantMove:
-                if (BoardManager.Instance != null) BoardManager.Instance.TryDestroyVisualPiece(enPassantMove.CapturedPawnSquare);
+                if (BoardManager.Instance != null)
+                    BoardManager.Instance.TryDestroyVisualPiece(enPassantMove.CapturedPawnSquare);
                 return true;
+
             case PromotionMove { PromotionPiece: null } promotionMove:
-                if (UIManager.Instance != null) UIManager.Instance.SetActivePromotionUI(true);
-                if (BoardManager.Instance != null) BoardManager.Instance.SetActiveAllPieces(false);
+                Debug.Log("[GameManager] Showing promotion UI");
 
-                promotionUITaskCancellationTokenSource?.Cancel();
-                promotionUITaskCancellationTokenSource = new CancellationTokenSource();
+                if (UIManager.Instance != null)
+                    UIManager.Instance.SetActivePromotionUI(true);
 
-                ElectedPiece choice = await Task.Run(GetUserPromotionPieceChoice, promotionUITaskCancellationTokenSource.Token);
+                if (BoardManager.Instance != null)
+                    BoardManager.Instance.SetActiveAllPieces(false);
 
-                if (UIManager.Instance != null) UIManager.Instance.SetActivePromotionUI(false);
-                if (BoardManager.Instance != null) BoardManager.Instance.SetActiveAllPieces(true);
+                // Dọn TCS cũ nếu còn
+                if (promotionTcs != null && !promotionTcs.Task.IsCompleted)
+                    promotionTcs.TrySetCanceled();
 
-                if (promotionUITaskCancellationTokenSource == null
-                  || promotionUITaskCancellationTokenSource.Token.IsCancellationRequested
-                ) { return false; }
+                promotionTcs = new TaskCompletionSource<ElectedPiece>();
+
+                ElectedPiece choice;
+                try
+                {
+                    choice = await promotionTcs.Task; // chờ người chơi chọn
+                }
+                catch (TaskCanceledException)
+                {
+                    if (UIManager.Instance != null)
+                        UIManager.Instance.SetActivePromotionUI(false);
+                    if (BoardManager.Instance != null)
+                        BoardManager.Instance.SetActiveAllPieces(true);
+
+                    promotionTcs = null;
+                    return false;
+                }
+
+                Debug.Log($"[GameManager] Player selected promotion: {choice}");
+
+                if (UIManager.Instance != null)
+                    UIManager.Instance.SetActivePromotionUI(false);
+                if (BoardManager.Instance != null)
+                    BoardManager.Instance.SetActiveAllPieces(true);
 
                 promotionMove.SetPromotionPiece(
-                  PromotionUtil.GeneratePromotionPiece(choice, SideToMove)
+                    PromotionUtil.GeneratePromotionPiece(choice, SideToMove)
                 );
+
                 if (BoardManager.Instance != null)
                 {
                     BoardManager.Instance.TryDestroyVisualPiece(promotionMove.Start);
@@ -366,8 +396,9 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
                     BoardManager.Instance.CreateAndPlacePieceGO(promotionMove.PromotionPiece, promotionMove.End);
                 }
 
-                promotionUITaskCancellationTokenSource = null;
+                promotionTcs = null;
                 return true;
+
             case PromotionMove promotionMove:
                 if (BoardManager.Instance != null)
                 {
@@ -376,10 +407,12 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
                     BoardManager.Instance.CreateAndPlacePieceGO(promotionMove.PromotionPiece, promotionMove.End);
                 }
                 return true;
+
             default:
                 return false;
         }
     }
+
 
     private ElectedPiece GetUserPromotionPieceChoice()
     {
@@ -392,6 +425,15 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
 
     public void ElectPiece(ElectedPiece choice)
     {
+        Debug.Log($"[GameManager] ElectPiece called: {choice}");
+
+        if (promotionTcs != null && !promotionTcs.Task.IsCompleted)
+        {
+            promotionTcs.TrySetResult(choice);
+            return;
+        }
+
+        // Nếu chưa tới bước promotion
         userPromotionChoice = choice;
     }
 
