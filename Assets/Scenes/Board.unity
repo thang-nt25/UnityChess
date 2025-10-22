@@ -4050,7 +4050,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1562968718
 RectTransform:
   m_ObjectHideFlags: 0
@@ -5997,6 +5997,21 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4938066219890177812, guid: caf93e4ddc2f0544cbddf4e2facb7fd7,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 7463109366908870895}
+    - target: {fileID: 4938066219890177812, guid: caf93e4ddc2f0544cbddf4e2facb7fd7,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: UndoLastMove
+      objectReference: {fileID: 0}
+    - target: {fileID: 4938066219890177812, guid: caf93e4ddc2f0544cbddf4e2facb7fd7,
+        type: 3}
+      propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
+      value: GameManager, Assembly-CSharp
+      objectReference: {fileID: 0}
     - target: {fileID: 5546542904921357975, guid: caf93e4ddc2f0544cbddf4e2facb7fd7,
         type: 3}
       propertyPath: m_ReadOnly
@@ -6035,7 +6050,7 @@ PrefabInstance:
     - target: {fileID: 6810705476634634377, guid: caf93e4ddc2f0544cbddf4e2facb7fd7,
         type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: 0.000061035156
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7463109367895200370, guid: caf93e4ddc2f0544cbddf4e2facb7fd7,
         type: 3}
@@ -6190,8 +6205,42 @@ PrefabInstance:
         type: 3}
       insertIndex: -1
       addedObject: {fileID: 483034905}
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 1329026540885309027, guid: caf93e4ddc2f0544cbddf4e2facb7fd7,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 7463109366908870897}
   m_SourcePrefab: {fileID: 100100000, guid: caf93e4ddc2f0544cbddf4e2facb7fd7, type: 3}
+--- !u!114 &7463109366908870895 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 7463109367895200373, guid: caf93e4ddc2f0544cbddf4e2facb7fd7,
+    type: 3}
+  m_PrefabInstance: {fileID: 7463109366908870894}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 241803167e25d0b499c5296fdf571029, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!1 &7463109366908870896 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 1329026540885309027, guid: caf93e4ddc2f0544cbddf4e2facb7fd7,
+    type: 3}
+  m_PrefabInstance: {fileID: 7463109366908870894}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &7463109366908870897
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7463109366908870896}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 926f3305efe073141bda50746e94059e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UndoButtonController
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

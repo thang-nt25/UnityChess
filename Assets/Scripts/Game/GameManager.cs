@@ -119,6 +119,8 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         _ => -1
     };
 
+    public bool CanUndo => _halfMoveIndicesForUndo != null && _halfMoveIndicesForUndo.Count > 1;
+
     private bool isWhiteAI;
     private bool isBlackAI;
 
@@ -153,6 +155,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     private GameSerializationType selectedSerializationType = GameSerializationType.FEN;
 
     private IUCIEngine uciEngine;
+    private Stack<int> _halfMoveIndicesForUndo;
 
     private void ApplyAIModeToFlags()
     {
@@ -238,6 +241,9 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         // -----------------------------
 
         game = new Game();
+        _halfMoveIndicesForUndo = new Stack<int>();
+        _halfMoveIndicesForUndo.Push(game.HalfMoveTimeline.HeadIndex);
+
         if (UIManager.Instance != null) UIManager.Instance.SetActivePromotionUI(false);
         promotionUITaskCancellationTokenSource?.Cancel();
         promotionUITaskCancellationTokenSource = null;
@@ -328,6 +334,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         }
 
         MoveExecutedEvent?.Invoke();
+        _halfMoveIndicesForUndo.Push(game.HalfMoveTimeline.HeadIndex);
 
         return true;
     }
@@ -546,6 +553,29 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     public void RestartWithLastMode()
     {
         StartNewGame(lastWhiteAI, lastBlackAI);
+    }
+
+    public void UndoLastMove()
+    {
+        if (_halfMoveIndicesForUndo == null || _halfMoveIndicesForUndo.Count <= 1)
+        {
+            Debug.Log("Cannot undo: No moves or only initial state left.");
+            return;
+        }
+
+        _halfMoveIndicesForUndo.Pop(); // Remove the current state's index
+        int previousHalfMoveIndex = _halfMoveIndicesForUndo.Peek(); // Get the index of the state before the last move
+
+        ResetGameToHalfMoveIndex(previousHalfMoveIndex);
+
+        // Ensure visual board is updated and pieces are enabled for the correct side
+        if (BoardManager.Instance != null)
+        {
+            BoardManager.Instance.FixAllPieceRotations();
+            BoardManager.Instance.EnsureOnlyPiecesOfSideAreEnabled(SideToMove);
+        }
+
+        Debug.Log($"Undo successful. Reset to half-move index: {previousHalfMoveIndex}");
     }
 
     private static Vector3 GetSquareWorldCenter(Transform square)
