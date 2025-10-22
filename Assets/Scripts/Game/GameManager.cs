@@ -24,7 +24,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     private bool lastBlackAI;
     [SerializeField] private int aiThinkTimeMs = 5000;
     // === Promotion flow controller ===
-    private TaskCompletionSource<ElectedPiece> promotionTcs = null;
+    public TaskCompletionSource<ElectedPiece> promotionTcs = null;
 
     // --- ĐÃ XÓA BIẾN cameraRigTransform VÀ HEADER CAMERA ORIENTATION ---
 
@@ -56,6 +56,13 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
                 this.aiMode = AIMode.HumanVsHuman;
                 break;
         }
+
+        promotionUITaskCancellationTokenSource?.Cancel();
+        promotionUITaskCancellationTokenSource?.Dispose();
+        promotionUITaskCancellationTokenSource = new CancellationTokenSource();
+        promotionTcs = null;
+        userPromotionChoice = ElectedPiece.None;
+
     }
 
     private void OnApplicationQuit()
@@ -148,7 +155,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     private FENSerializer fenSerializer;
     private PGNSerializer pgnSerializer;
     private CancellationTokenSource promotionUITaskCancellationTokenSource;
-    private ElectedPiece userPromotionChoice = ElectedPiece.None;
+    public ElectedPiece userPromotionChoice = ElectedPiece.None;
     private Dictionary<GameSerializationType, IGameSerializer> serializersByType;
     private GameSerializationType selectedSerializationType = GameSerializationType.FEN;
 
@@ -176,6 +183,8 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
                 this.isBlackAI = false;
                 break;
         }
+
+        ResetPromotionFlow();
     }
 
     public void Start()
@@ -220,6 +229,34 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         };
     }
 
+    private void ResetPromotionFlow(bool fullReset = false)
+    {
+        try
+        {
+            promotionUITaskCancellationTokenSource?.Cancel();
+            promotionUITaskCancellationTokenSource?.Dispose();
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[GameManager] Promotion token reset error: {e.Message}");
+        }
+
+        promotionUITaskCancellationTokenSource = new CancellationTokenSource();
+
+        if (promotionTcs != null && !promotionTcs.Task.IsCompleted)
+        {
+            promotionTcs.TrySetCanceled();
+        }
+        promotionTcs = null;
+
+
+        userPromotionChoice = ElectedPiece.None;
+
+        if (UIManager.Instance != null)
+            UIManager.Instance.SetActivePromotionUI(false);
+    }
+
+
 #if AI_TEST
 	public async void StartNewGame(bool isWhiteAI = true, bool isBlackAI = true) {
 #else
@@ -235,12 +272,20 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         {
             BoardManager.Instance.RotateBoardForSide(humanSide);
         }
-        // -----------------------------
 
         game = new Game();
-        if (UIManager.Instance != null) UIManager.Instance.SetActivePromotionUI(false);
-        promotionUITaskCancellationTokenSource?.Cancel();
-        promotionUITaskCancellationTokenSource = null;
+
+        // 🔹 Reset Promotion Safe
+        ResetPromotionFlow(fullReset: true);
+
+        // 🔹 Reset lựa chọn người chơi
+        userPromotionChoice = ElectedPiece.None;
+
+        // 🔹 Ẩn UI nếu đang hiện
+        if (UIManager.Instance != null)
+        {
+            UIManager.Instance.SetActivePromotionUI(false);
+        }
 
         this.isWhiteAI = isWhiteAI;
         this.isBlackAI = isBlackAI;
@@ -348,6 +393,25 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
                 return true;
 
             case PromotionMove { PromotionPiece: null } promotionMove:
+                // 🔹 Nếu là AI đang đi, tự động chọn Queen
+                bool isAITurn = (SideToMove == Side.White && isWhiteAI)
+                             || (SideToMove == Side.Black && isBlackAI);
+
+                if (isAITurn)
+                {
+                    promotionMove.SetPromotionPiece(
+                        PromotionUtil.GeneratePromotionPiece(ElectedPiece.Queen, SideToMove)
+                    );
+                    if (BoardManager.Instance != null)
+                    {
+                        BoardManager.Instance.TryDestroyVisualPiece(promotionMove.Start);
+                        BoardManager.Instance.TryDestroyVisualPiece(promotionMove.End);
+                        BoardManager.Instance.CreateAndPlacePieceGO(promotionMove.PromotionPiece, promotionMove.End);
+                    }
+                    return true;
+                }
+
+                // --- Nếu là người chơi thì hiện UI chọn ---
                 Debug.Log("[GameManager] Showing promotion UI");
 
                 if (UIManager.Instance != null)
@@ -356,34 +420,40 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
                 if (BoardManager.Instance != null)
                     BoardManager.Instance.SetActiveAllPieces(false);
 
-                // Dọn TCS cũ nếu còn
+                // 🔹 Bổ sung xử lý an toàn cho token và task
+                if (promotionUITaskCancellationTokenSource == null || promotionUITaskCancellationTokenSource.IsCancellationRequested)
+                {
+                    promotionUITaskCancellationTokenSource?.Dispose();
+                    promotionUITaskCancellationTokenSource = new CancellationTokenSource();
+                }
+
+                // 🔹 Nếu có task cũ đang treo thì hủy
                 if (promotionTcs != null && !promotionTcs.Task.IsCompleted)
+                {
                     promotionTcs.TrySetCanceled();
+                }
 
                 promotionTcs = new TaskCompletionSource<ElectedPiece>();
 
                 ElectedPiece choice;
                 try
                 {
-                    choice = await promotionTcs.Task; // chờ người chơi chọn
+                    Debug.Log("[GameManager] Waiting for promotion choice...");
+                    choice = await promotionTcs.Task; // ⏳ chờ người chơi chọn quân phong
                 }
                 catch (TaskCanceledException)
                 {
-                    if (UIManager.Instance != null)
-                        UIManager.Instance.SetActivePromotionUI(false);
-                    if (BoardManager.Instance != null)
-                        BoardManager.Instance.SetActiveAllPieces(true);
-
-                    promotionTcs = null;
+                    Debug.LogWarning("[GameManager] Promotion task bị hủy do reset hoặc đổi chế độ");
                     return false;
                 }
 
-                Debug.Log($"[GameManager] Player selected promotion: {choice}");
-
                 if (UIManager.Instance != null)
                     UIManager.Instance.SetActivePromotionUI(false);
+
                 if (BoardManager.Instance != null)
                     BoardManager.Instance.SetActiveAllPieces(true);
+                ResetPromotionFlow();
+
 
                 promotionMove.SetPromotionPiece(
                     PromotionUtil.GeneratePromotionPiece(choice, SideToMove)
@@ -396,8 +466,8 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
                     BoardManager.Instance.CreateAndPlacePieceGO(promotionMove.PromotionPiece, promotionMove.End);
                 }
 
-                promotionTcs = null;
                 return true;
+
 
             case PromotionMove promotionMove:
                 if (BoardManager.Instance != null)
@@ -414,28 +484,35 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     }
 
 
-    private ElectedPiece GetUserPromotionPieceChoice()
-    {
-        while (userPromotionChoice == ElectedPiece.None) { }
-
-        ElectedPiece result = userPromotionChoice;
-        userPromotionChoice = ElectedPiece.None;
-        return result;
-    }
-
     public void ElectPiece(ElectedPiece choice)
     {
         Debug.Log($"[GameManager] ElectPiece called: {choice}");
 
-        if (promotionTcs != null && !promotionTcs.Task.IsCompleted)
+        if (promotionTcs == null)
         {
-            promotionTcs.TrySetResult(choice);
+            Debug.LogWarning("[GameManager] promotionTcs is null — không trong trạng thái chờ phong quân, bỏ qua click.");
             return;
         }
 
-        // Nếu chưa tới bước promotion
-        userPromotionChoice = choice;
+        if (promotionUITaskCancellationTokenSource == null || promotionUITaskCancellationTokenSource.IsCancellationRequested)
+        {
+            Debug.LogWarning("[GameManager] Token bị cancel — có thể vừa reset ván, bỏ qua click.");
+            return;
+        }
+
+        if (!promotionTcs.Task.IsCompleted)
+        {
+            promotionTcs.TrySetResult(choice);
+            Debug.Log("[GameManager] promotionTcs SetResult thành công!");
+        }
+        else
+        {
+            Debug.LogWarning("[GameManager] promotionTcs đã hoàn thành trước đó — bỏ qua click trùng.");
+        }
     }
+
+
+
 
     private async void OnPieceMoved(Square movedPieceInitialSquare, Transform movedPieceTransform, Transform closestBoardSquareTransform, Piece promotionPiece = null)
     {
@@ -540,11 +617,14 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
 
     public void RestartWithCurrentMode()
     {
+        ResetPromotionFlow(fullReset: true);
         StartNewGame(isWhiteAI, isBlackAI);
     }
 
+
     public void RestartWithLastMode()
     {
+        ResetPromotionFlow(fullReset: true);
         StartNewGame(lastWhiteAI, lastBlackAI);
     }
 
