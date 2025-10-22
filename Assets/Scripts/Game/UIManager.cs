@@ -231,28 +231,7 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         }
     }
 
-    public void OnElectionButton(int choice)
-    {
-        var electedPiece = (ElectedPiece)choice;
-
-        // Nếu GameManager đang chờ người chơi chọn quân phong
-        if (GameManager.Instance != null)
-        {
-            if (GameManager.Instance.promotionTcs != null && !GameManager.Instance.promotionTcs.Task.IsCompleted)
-            {
-                // 🔹 Gửi kết quả chọn quân cho GameManager
-                GameManager.Instance.promotionTcs.TrySetResult(electedPiece);
-            }
-            else
-            {
-                // 🔹 Dự phòng: fallback nếu dùng hàm cũ
-                GameManager.Instance.ElectPiece(electedPiece);
-            }
-        }
-
-        // 🔹 Ẩn UI sau khi chọn
-        SetActivePromotionUI(false);
-    }
+    public void OnElectionButton(int choice) => GameManager.Instance.ElectPiece((ElectedPiece)choice);
 
     public void ResetGameToFirstHalfMove() => GameManager.Instance.ResetGameToHalfMoveIndex(0);
 
@@ -534,17 +513,5 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
             BoardManager.Instance.SetActiveAllPieces(active);
         }
     }
-
-    public void ResetPromotionUI()
-    {
-        promotionUI?.SetActive(false);
-
-        if (GameManager.Instance != null)
-        {
-            GameManager.Instance.userPromotionChoice = ElectedPiece.None;
-            GameManager.Instance.promotionTcs?.TrySetCanceled();
-        }
-    }
-
 
 }
