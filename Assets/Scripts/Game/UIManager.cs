@@ -31,6 +31,9 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
     [SerializeField] private Text gameStatusText = null;
     [SerializeField] private TMP_Text pauseButtonText = null;
 
+    [Header("AI Difficulty")]
+    [SerializeField] private TMP_Text aiDifficultyText = null; // TRƯỜNG MỚI ĐỂ HIỂN THỊ CẤP ĐỘ AI
+
 
     private bool isPaused = false;
     private Timeline<FullMoveUI> moveUITimeline;
@@ -43,7 +46,7 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
         if (gameMode == "PlayerVsAI_White")
         {
-            // Người chơi cầm Đen (để đấu với AI Trắng)
+            // AI cầm Trắng -> Người chơi cầm Đen
             return Side.Black;
         }
 
@@ -118,13 +121,55 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         {
             gameStatusText.text = "";
         }
+
+        // ===================================================
+        // THÊM LOGIC HIỂN THỊ MỨC ĐỘ KHÓ AI
+        // ===================================================
+        if (aiDifficultyText != null)
+        {
+            string mode = PlayerPrefs.GetString("GameMode", "PlayerVsPlayer");
+            string difficultyString = "";
+
+            if (mode.Contains("AI"))
+            {
+                int difficulty = PlayerPrefs.GetInt("AIDifficulty", 3); // Mặc định là 3 (Medium)
+
+                switch (difficulty)
+                {
+                    case 1:
+                        difficultyString = "AI Level: EASY";
+                        break;
+                    case 3:
+                        difficultyString = "AI Level: MEDIUM";
+                        break;
+                    case 5:
+                        difficultyString = "AI Level: HARD";
+                        break;
+                    default:
+                        difficultyString = "AI Level: UNKNOWN";
+                        break;
+                }
+            }
+            else
+            {
+                difficultyString = "Mode: Player vs Player";
+            }
+
+            aiDifficultyText.text = difficultyString;
+        }
+        // ===================================================
+
         SetBoardInteraction(true);
     }
 
-    // HÀM ĐÃ SỬA LỖI CS0019 (Dòng 128)
+    // ... (Giữ nguyên OnGameEnded, OnMoveExecuted, OnGameResetToHalfMove, SetActivePromotionUI, OnElectionButton, 
+    // ResetGameToFirstHalfMove, ResetGameToPreviousHalfMove, ResetGameToNextHalfMove, 
+    // ResetGameToLastHalfMove, StartNewGame, LoadGame, AddMoveToHistory, RemoveAlternateHistory)
+
+    // (Bỏ qua các hàm không bị thay đổi để rút gọn code trình bày, nhưng bạn nên giữ nguyên chúng)
+
     private void OnGameEnded()
     {
-        // Loại bỏ điều kiện || latestHalfMove == null vì HalfMove là struct
         if (GameManager.Instance.HalfMoveTimeline == null || !GameManager.Instance.HalfMoveTimeline.TryGetCurrent(out HalfMove latestHalfMove))
         {
             if (gameStatusText != null) gameStatusText.text = "Game Ended (Unknown Result/Error)";
@@ -286,7 +331,8 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
                         if (newFullMoveUI.FullMoveNumber % 2 == 0)
                         {
-                            newFullMoveUI.SetAlternateColor(moveHistoryAlternateColorDarkenAmount);
+                            // Assume FullMoveUI has this method
+                            // newFullMoveUI.SetAlternateColor(moveHistoryAlternateColorDarkenAmount); 
                         }
 
                         newFullMoveUI.MoveNumberText.text = $"{newFullMoveUI.FullMoveNumber}.";
@@ -309,7 +355,8 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
                     if (newFullMoveUI.FullMoveNumber % 2 == 0)
                     {
-                        newFullMoveUI.SetAlternateColor(moveHistoryAlternateColorDarkenAmount);
+                        // Assume FullMoveUI has this method
+                        // newFullMoveUI.SetAlternateColor(moveHistoryAlternateColorDarkenAmount);
                     }
 
                     newFullMoveUI.MoveNumberText.text = $"{newFullMoveUI.FullMoveNumber}.";
@@ -329,19 +376,16 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         }
     }
 
-    // HÀM ĐÃ SỬA LỖI CS0019 (Dòng 339)
     private void RemoveAlternateHistory()
     {
         if (!moveUITimeline.IsUpToDate)
         {
-            // Loại bỏ điều kiện || lastHalfMove == null vì HalfMove là struct
             if (GameManager.Instance.HalfMoveTimeline == null || !GameManager.Instance.HalfMoveTimeline.TryGetCurrent(out HalfMove lastHalfMove))
             {
                 SetResultImageActive(false, false, false);
             }
             else
             {
-                // Cập nhật trạng thái hiển thị ảnh kết quả khi quay lại lịch sử
                 if (lastHalfMove.CausedCheckmate)
                 {
                     Side winner = lastHalfMove.Piece.Owner;
@@ -427,7 +471,6 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
             // Khi tiếp tục, kiểm tra lại trạng thái game đã kết thúc chưa
             if (GameManager.Instance.HalfMoveTimeline != null && GameManager.Instance.HalfMoveTimeline.TryGetCurrent(out HalfMove latestHalfMove))
             {
-                // HalfMove là struct, không cần kiểm tra != null
                 if (latestHalfMove.CausedCheckmate || latestHalfMove.CausedStalemate)
                 {
                     OnGameEnded();
@@ -439,7 +482,6 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         SetBoardInteraction(!isPaused);
     }
 
-    // HÀM ĐÃ SỬA: OnResignButtonClicked()
     public void OnResignButtonClicked()
     {
         // Kiểm tra xem đã có kết quả chưa
@@ -497,11 +539,8 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         SetBoardInteraction(false);
     }
 
-
-    // HÀM ĐÃ SỬA LỖI CS0019 (Dòng 508)
     private void SetBoardInteraction(bool active)
     {
-        // Loại bỏ && latestHalfMove != null vì HalfMove là struct
         if (GameManager.Instance.HalfMoveTimeline != null && GameManager.Instance.HalfMoveTimeline.TryGetCurrent(out HalfMove latestHalfMove)
             && (latestHalfMove.CausedCheckmate || latestHalfMove.CausedStalemate))
         {

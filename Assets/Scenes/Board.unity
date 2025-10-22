@@ -2168,6 +2168,7 @@ MonoBehaviour:
   turnIndicatorText: {fileID: 0}
   gameStatusText: {fileID: 0}
   pauseButtonText: {fileID: 0}
+  aiDifficultyText: {fileID: 0}
 --- !u!4 &845568104
 Transform:
   m_ObjectHideFlags: 0
@@ -4050,7 +4051,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1562968718
 RectTransform:
   m_ObjectHideFlags: 0
@@ -6115,7 +6116,7 @@ PrefabInstance:
     - target: {fileID: 7463109367895200373, guid: caf93e4ddc2f0544cbddf4e2facb7fd7,
         type: 3}
       propertyPath: aiMode
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7463109367895200373, guid: caf93e4ddc2f0544cbddf4e2facb7fd7,
         type: 3}
@@ -6130,7 +6131,7 @@ PrefabInstance:
     - target: {fileID: 7463109367895200373, guid: caf93e4ddc2f0544cbddf4e2facb7fd7,
         type: 3}
       propertyPath: aiThinkTimeMs
-      value: 1000
+      value: 200
       objectReference: {fileID: 0}
     - target: {fileID: 8433262171349199163, guid: caf93e4ddc2f0544cbddf4e2facb7fd7,
         type: 3}

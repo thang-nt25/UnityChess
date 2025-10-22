@@ -7,7 +7,7 @@ namespace UnityChess.Engine {
 		void ShutDown();
 		
 		Task SetupNewGame(Game game);
-		
-		Task<Movement> GetBestMove(int timeoutMS);
-	}
+
+        Task<Movement> GetBestMove(int timeoutMS, int depth);
+    }
 }
