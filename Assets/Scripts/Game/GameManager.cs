@@ -351,6 +351,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         if (latestHalfMove.CausedCheckmate || latestHalfMove.CausedStalemate)
         {
             if (BoardManager.Instance != null) BoardManager.Instance.SetActiveAllPieces(false);
+            HandleGameEnd(latestHalfMove); // GỌI HÀM LƯU GAME
             GameEndedEvent?.Invoke();
         }
         else
@@ -362,6 +363,44 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         _halfMoveIndicesForUndo.Push(game.HalfMoveTimeline.HeadIndex);
 
         return true;
+    }
+
+    private void HandleGameEnd(HalfMove latestHalfMove)
+    {
+        string result;
+        if (latestHalfMove.CausedCheckmate)
+        {
+            // SideToMove đã được chuyển sang lượt tiếp theo, vì vậy bên thắng là bên ngược lại.
+            Side winningSide = SideToMove == Side.White ? Side.Black : Side.White;
+            result = $"{winningSide} Wins";
+        }
+        else // Gây ra hòa cờ
+        {
+            result = "Draw";
+        }
+
+        string mode;
+        switch (aiMode)
+        {
+            case AIMode.HumanVsHuman:
+                mode = "Player vs Player";
+                break;
+            case AIMode.HumanVsAI_White: // AI cầm quân Trắng, người chơi cầm quân Đen
+                mode = "Player vs AI (Black)";
+                break;
+            case AIMode.HumanVsAI_Black: // AI cầm quân Đen, người chơi cầm quân Trắng
+                mode = "Player vs AI (White)";
+                break;
+            case AIMode.AIVsAI:
+                mode = "AI vs AI";
+                break;
+            default:
+                mode = "Unknown";
+                break;
+        }
+
+        // Gọi HistoryManager để lưu thông tin ván đấu
+        HistoryManager.SaveGame(result, mode, game.HalfMoveTimeline);
     }
 
     private async Task<bool> TryHandleSpecialMoveBehaviourAsync(SpecialMove specialMove)
