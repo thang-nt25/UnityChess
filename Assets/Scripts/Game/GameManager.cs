@@ -231,6 +231,10 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         _halfMoveIndicesForUndo = new Stack<int>();
         _halfMoveIndicesForUndo.Push(game.HalfMoveTimeline.HeadIndex);
 
+        promotionTcs = null;
+        if (UIManager.Instance != null)
+            UIManager.Instance.SetActivePromotionUI(false);
+
         if (UIManager.Instance != null) UIManager.Instance.SetActivePromotionUI(false);
         promotionTcs = null;
 

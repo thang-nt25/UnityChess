@@ -71,6 +71,16 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
         // Ẩn tất cả ảnh kết quả khi khởi tạo
         SetResultImageActive(false, false, false);
+
+        if (promotionUI != null)
+        {
+            promotionUI.SetActive(false);
+            Debug.Log("[UIManager] Promotion UI hidden on Start()");
+        }
+        else
+        {
+            Debug.LogWarning("[UIManager] Promotion UI reference is missing!");
+        }
     }
 
     private void SetResultImageActive(bool winActive, bool loseActive, bool drawActive)
