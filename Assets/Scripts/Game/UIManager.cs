@@ -27,7 +27,7 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
     [SerializeField] private Color textColor = new Color(1f, 0.71f, 0.18f);
     [SerializeField, Range(-0.25f, 0.25f)] private float buttonColorDarkenAmount = 0f;
     [SerializeField, Range(-0.25f, 0.25f)] private float moveHistoryAlternateColorDarkenAmount = 0f;
-    [SerializeField] private TMP_Text turnIndicatorText = null;
+    [SerializeField] private Text turnIndicatorText = null;
     [SerializeField] private Text gameStatusText = null;
     [SerializeField] private TMP_Text pauseButtonText = null;
 
