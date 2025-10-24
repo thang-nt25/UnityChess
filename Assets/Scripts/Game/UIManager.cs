@@ -11,10 +11,13 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
     [SerializeField] private GameObject promotionUI = null;
 
     [Header("Game Result Screen")]
-    [SerializeField] private GameObject resultPanel = null; // 🛠️ THÊM: Panel chứa toàn bộ UI kết quả (nếu bạn có)
-    [SerializeField] private Image winImage = null;
-    [SerializeField] private Image loseImage = null;
+    [SerializeField] private GameObject resultPanel = null; // Panel chứa UI kết quả
+    [SerializeField] private Image winImage = null;          // YOU WIN
+    [SerializeField] private Image loseImage = null;         // YOU LOSE
     [SerializeField] private Image drawImage = null;
+    // 2 ảnh riêng cho PvP: White/Black thắng
+    [SerializeField] private Image whiteWinImage = null;
+    [SerializeField] private Image blackWinImage = null;
 
     [SerializeField] private InputField GameStringInputField = null;
     [SerializeField] private Image whiteTurnIndicator = null;
@@ -40,21 +43,29 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
     private Side GetPlayerSide()
     {
+        // xác định bên của người chơi khi có AI
         string gameMode = PlayerPrefs.GetString("GameMode", AIMode.HumanVsHuman.ToString());
 
         if (gameMode == AIMode.HumanVsAI_White.ToString())
         {
-            Debug.Log($"[PlayerSide] GameMode: {gameMode}. Player is Black.");
-            return Side.Black;
-        }
-
-        if (gameMode == AIMode.HumanVsAI_Black.ToString() || gameMode == AIMode.HumanVsHuman.ToString())
-        {
-            Debug.Log($"[PlayerSide] GameMode: {gameMode}. Player is White.");
+            // Người chơi điều khiển Trắng
             return Side.White;
         }
 
+        if (gameMode == AIMode.HumanVsAI_Black.ToString())
+        {
+            // Người chơi điều khiển Đen
+            return Side.Black;
+        }
+
+        // PvP mặc định trả White (không dùng trong so sánh thắng/thua của PvP)
         return Side.White;
+    }
+
+    private bool IsPvP()
+    {
+        string mode = PlayerPrefs.GetString("GameMode", AIMode.HumanVsHuman.ToString());
+        return mode == AIMode.HumanVsHuman.ToString();
     }
 
     private void Start()
@@ -73,43 +84,73 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
             backgroundColor.b - buttonColorDarkenAmount
         );
 
+        // Ẩn hết kết quả khi bắt đầu
         SetResultImageActive(false, false, false);
-        if (resultPanel != null) resultPanel.SetActive(false); // Ẩn Panel kết quả khi Start
+        if (resultPanel != null) resultPanel.SetActive(false);
+        if (whiteWinImage) whiteWinImage.gameObject.SetActive(false);
+        if (blackWinImage) blackWinImage.gameObject.SetActive(false);
 
         if (promotionUI != null) promotionUI.SetActive(false);
         else Debug.LogWarning("[UIManager] Promotion UI reference is missing!");
     }
 
+    // helper cũ: dùng cho YOU WIN / YOU LOSE / DRAW
     private void SetResultImageActive(bool winActive, bool loseActive, bool drawActive)
     {
         if (winImage) winImage.gameObject.SetActive(winActive);
         if (loseImage) loseImage.gameObject.SetActive(loseActive);
         if (drawImage) drawImage.gameObject.SetActive(drawActive);
 
-        // Cập nhật trạng thái của Result Panel
+        // tắt ảnh PvP khi dùng helper này
+        if (whiteWinImage) whiteWinImage.gameObject.SetActive(false);
+        if (blackWinImage) blackWinImage.gameObject.SetActive(false);
+
         if (resultPanel != null)
-        {
             resultPanel.SetActive(winActive || loseActive || drawActive);
-        }
 
         if (winActive && winImage) winImage.transform.SetAsLastSibling();
         else if (loseActive && loseImage) loseImage.transform.SetAsLastSibling();
         else if (drawActive && drawImage) drawImage.transform.SetAsLastSibling();
     }
 
+    // hiển thị đúng ảnh theo chế độ
     private void ShowWinner(Side winner)
     {
-        Side playerSide = GetPlayerSide();
-        bool playerWin = (winner == playerSide);
+        // tắt tất cả trước
+        SetResultImageActive(false, false, false);
+        if (whiteWinImage) whiteWinImage.gameObject.SetActive(false);
+        if (blackWinImage) blackWinImage.gameObject.SetActive(false);
 
-        SetResultImageActive(playerWin, !playerWin, false);
+        if (IsPvP())
+        {
+            // PvP: show White/Black WIN
+            if (winner == Side.White)
+            {
+                if (whiteWinImage) whiteWinImage.gameObject.SetActive(true);
+            }
+            else
+            {
+                if (blackWinImage) blackWinImage.gameObject.SetActive(true);
+            }
 
-        if (gameStatusText)
-            gameStatusText.text = playerWin
-                ? $"You Win! ({winner} wins by checkmate)"
-                : $"You Lose! ({winner} wins by checkmate)";
+            if (gameStatusText) gameStatusText.text = $"{winner} wins by checkmate";
+        }
+        else
+        {
+            // Vs AI: show YOU WIN / YOU LOSE
+            Side playerSide = GetPlayerSide();
+            bool playerWin = (winner == playerSide);
 
-        Debug.Log($"[GameResult] Winner: {winner}, PlayerSide: {playerSide}, Result: {(playerWin ? "WIN" : "LOSE")}");
+            SetResultImageActive(playerWin, !playerWin, false);
+
+            if (gameStatusText)
+                gameStatusText.text = playerWin
+                    ? $"You Win! ({winner} wins by checkmate)"
+                    : $"You Lose! ({winner} wins by checkmate)";
+        }
+
+        if (resultPanel != null) resultPanel.SetActive(true);
+        Debug.Log($"[GameResult] Winner: {winner}, PvP={IsPvP()}");
     }
 
     private void OnNewGameStarted()
@@ -127,8 +168,11 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         }
 
         moveUITimeline.Clear();
-        SetResultImageActive(false, false, false); // Ẩn kết quả
-        if (resultPanel != null) resultPanel.SetActive(false); // Ẩn Panel kết quả
+        SetResultImageActive(false, false, false);
+        if (resultPanel != null) resultPanel.SetActive(false);
+        if (whiteWinImage) whiteWinImage.gameObject.SetActive(false);
+        if (blackWinImage) blackWinImage.gameObject.SetActive(false);
+
         if (gameStatusText) gameStatusText.text = "";
 
         if (aiDifficultyText != null)
@@ -157,7 +201,7 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         {
             if (gameStatusText) gameStatusText.text = "Game Ended (Unknown Result/Error)";
             SetBoardInteraction(false);
-            if (resultPanel != null) resultPanel.SetActive(true); // Hiển thị Panel kết quả nếu có lỗi
+            if (resultPanel != null) resultPanel.SetActive(true);
             return;
         }
 
@@ -178,7 +222,7 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         }
 
         SetBoardInteraction(false);
-        if (resultPanel != null) resultPanel.SetActive(true); // Hiển thị Panel kết quả
+        if (resultPanel != null) resultPanel.SetActive(true);
     }
 
     private void OnMoveExecuted()
@@ -361,19 +405,14 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         UnityEngine.SceneManagement.SceneManager.LoadScene("MainMenu");
     }
 
-    // 🏆 HÀM MỚI: TẮT MÀN HÌNH KẾT QUẢ 🏆
     public void CloseResultScreen()
     {
-        // 1. Ẩn tất cả các hình ảnh kết quả (Win/Lose/Draw)
         SetResultImageActive(false, false, false);
+        if (whiteWinImage) whiteWinImage.gameObject.SetActive(false);
+        if (blackWinImage) blackWinImage.gameObject.SetActive(false);
 
-        // 2. Ẩn Panel kết quả
-        if (resultPanel != null)
-        {
-            resultPanel.SetActive(false);
-        }
+        if (resultPanel != null) resultPanel.SetActive(false);
 
-        // 3. Xóa trạng thái kết thúc game trên Text và hiển thị Check nếu có
         if (gameStatusText)
         {
             if (GameManager.Instance.HalfMoveTimeline != null &&
@@ -390,9 +429,6 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
             }
         }
 
-        // 4. Cho phép tương tác bàn cờ (để có thể xem lại lịch sử)
-        // SetBoardInteraction(true) được gọi trong các hàm Reset/Undo.
-        // Ở đây, ta chỉ cần đảm bảo Time.timeScale không bị 0 để các Coroutine hoạt động
         Time.timeScale = 1f;
     }
 
@@ -407,6 +443,8 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         {
             if (gameStatusText) gameStatusText.text = "Game Paused";
             SetResultImageActive(false, false, false);
+            if (whiteWinImage) whiteWinImage.gameObject.SetActive(false);
+            if (blackWinImage) blackWinImage.gameObject.SetActive(false);
             if (resultPanel != null) resultPanel.SetActive(false);
         }
         else
@@ -425,9 +463,12 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
     public void OnResignButtonClicked()
     {
+        // chặn khi bất kỳ ảnh kết quả nào đang bật
         if ((winImage && winImage.gameObject.activeSelf) ||
             (loseImage && loseImage.gameObject.activeSelf) ||
-            (drawImage && drawImage.gameObject.activeSelf))
+            (drawImage && drawImage.gameObject.activeSelf) ||
+            (whiteWinImage && whiteWinImage.gameObject.activeSelf) ||
+            (blackWinImage && blackWinImage.gameObject.activeSelf))
         {
             return;
         }
@@ -435,10 +476,12 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         Side resigningSide = GameManager.Instance.SideToMove;
         Side winner = resigningSide.Complement();
 
+        // Hiện kết quả đúng theo chế độ
+        ShowWinner(winner);
+
+        // Message phụ tùy theo người chơi
         Side playerSide = GetPlayerSide();
         bool playerWin = (winner == playerSide);
-
-        SetResultImageActive(playerWin, !playerWin, false);
 
         if (gameStatusText)
             gameStatusText.text = playerWin
@@ -454,7 +497,9 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
     {
         if ((winImage && winImage.gameObject.activeSelf) ||
             (loseImage && loseImage.gameObject.activeSelf) ||
-            (drawImage && drawImage.gameObject.activeSelf))
+            (drawImage && drawImage.gameObject.activeSelf) ||
+            (whiteWinImage && whiteWinImage.gameObject.activeSelf) ||
+            (blackWinImage && blackWinImage.gameObject.activeSelf))
         {
             return;
         }
