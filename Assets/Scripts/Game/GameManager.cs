@@ -5,6 +5,7 @@ using UnityChess;
 using UnityChess.Engine;
 using UnityEngine;
 using static UnityChess.SquareUtil;
+using Debug = UnityEngine.Debug;
 
 public class GameManager : MonoBehaviourSingleton<GameManager>
 {
@@ -40,7 +41,8 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     private bool lastWhiteAI;
     private bool lastBlackAI;
 
-    // ... (Các properties như CurrentBoard, SideToMove, TryGetLegalMoves...)
+    public Game Game => game;
+
     public Board CurrentBoard
     {
         get
@@ -67,6 +69,16 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
             return false;
         }
         return game.TryGetLegalMovesForPiece(piece, out legalMoves);
+    }
+
+    public bool TryGetLegalMove(Square start, Square end, out Movement move)
+    {
+        if (game == null)
+        {
+            move = null;
+            return false;
+        }
+        return game.TryGetLegalMove(start, end, out move);
     }
 
     public Side StartingSide => game.ConditionsTimeline[0].SideToMove;
@@ -106,10 +118,8 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     private Stack<int> _halfMoveIndicesForUndo;
 
 
-    // *** ĐIỀU CHỈNH CHÍNH Ở ĐÂY: GỌI RestartWithCurrentMode() TẠI AWAKE ***
     public void Awake()
     {
-        // Đọc chế độ chơi từ PlayerPrefs (được MainMenu lưu lại)
         string desiredMode = PlayerPrefs.GetString("GameMode", AIMode.HumanVsHuman.ToString());
         this.WhiteAIDifficulty = PlayerPrefs.GetInt("WhiteAIDifficulty", 3);
         this.BlackAIDifficulty = PlayerPrefs.GetInt("BlackAIDifficulty", 3);
@@ -125,7 +135,6 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
             this.aiMode = AIMode.HumanVsHuman;
         }
 
-        // Khởi động game ngay sau khi đọc chế độ
         RestartWithCurrentMode();
     }
 
@@ -136,7 +145,6 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         PlayerPrefs.DeleteKey("BlackAIDifficulty");
     }
 
-    // ... (Các hàm EnsureAudio, PlaySfx)
     private void EnsureAudio()
     {
         if (sfxSource == null)
@@ -179,7 +187,6 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         }
     }
 
-    // *** ĐIỀU CHỈNH CHÍNH Ở ĐÂY: XÓA logic khởi tạo game đã chuyển lên Awake() ***
     public void Start()
     {
         VisualPiece.VisualPieceMoved += OnPieceMoved;
@@ -203,14 +210,14 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         uciEngine?.ShutDown();
     }
 
-    // HÀM CHÍNH: Xác định bên cờ của người chơi dựa trên AIMode (Logic này đã đúng)
     public Side GetHumanSide()
     {
         return aiMode switch
         {
-            AIMode.HumanVsAI_White => Side.Black, // Người chơi cầm Đen -> Board xoay 180
-            AIMode.HumanVsAI_Black => Side.White, // Người chơi cầm Trắng -> Board xoay 0
-            _ => Side.White // Mặc định là Trắng trong HumanVsHuman
+            AIMode.HumanVsAI_White => Side.Black,
+            AIMode.HumanVsAI_Black => Side.White,
+            AIMode.AIVsAI => Side.White, // Giả sử hiển thị Trắng là người chơi chính nếu AIVsAI
+            _ => Side.White
         };
     }
 
@@ -221,7 +228,6 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
 
         Side humanSide = GetHumanSide();
 
-        // KÍCH HOẠT XOAY BÀN CỜ THEO BÊN NGƯỜI CHƠI (Logic này đã đúng)
         if (BoardManager.Instance != null)
         {
             BoardManager.Instance.RotateBoardForSide(humanSide);
@@ -235,9 +241,6 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         if (UIManager.Instance != null)
             UIManager.Instance.SetActivePromotionUI(false);
 
-        if (UIManager.Instance != null) UIManager.Instance.SetActivePromotionUI(false);
-        promotionTcs = null;
-
         this.isWhiteAI = isWhiteAI;
         this.isBlackAI = isBlackAI;
 
@@ -245,8 +248,19 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         {
             if (uciEngine == null)
             {
-                uciEngine = new MockUCIEngine();
+                // Khởi tạo engine nếu chưa có
+                uciEngine = new StockfishUCIEngine();
                 uciEngine.Start();
+            }
+
+            // Bổ sung: Chờ một chút để engine khởi động hoàn toàn (Rất quan trọng)
+            await Task.Delay(300);
+
+            // KIỂM TRA ENGINE CÓ KHỞI TẠO THÀNH CÔNG KHÔNG
+            if (uciEngine == null)
+            {
+                Debug.LogError("[GameManager] UCI Engine is null after attempted initialization. Cannot start AI game.");
+                return;
             }
 
             await uciEngine.SetupNewGame(game);
@@ -265,7 +279,16 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
                 {
                     int currentDepth = SideToMove == Side.White ? WhiteAIDifficulty : BlackAIDifficulty;
                     Movement bestMove = await uciEngine.GetBestMove(aiThinkTimeMs, currentDepth);
-                    DoAIMove(bestMove);
+
+                    // SỬA LỖI CHÍNH: KIỂM TRA bestMove CÓ NULL KHÔNG (Dòng 286 trong log)
+                    if (bestMove != null)
+                    {
+                        DoAIMove(bestMove);
+                    }
+                    else
+                    {
+                        Debug.LogError("AI Move failed: Engine returned a null move.");
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -284,13 +307,11 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         }
     }
 
-    // ... (Các hàm SerializeGame, LoadGame, ResetGameToHalfMoveIndex, TryExecuteMove, TryHandleSpecialMoveBehaviourAsync, ElectPiece, OnPieceMoved, DoAIMove, HasLegalMoves, UndoLastMove, GetSquareWorldCenter)
-
     public string SerializeGame()
     {
         return serializersByType.TryGetValue(selectedSerializationType, out IGameSerializer serializer)
-            ? serializer?.Serialize(game)
-            : null;
+          ? serializer?.Serialize(game)
+          : null;
     }
 
     public void LoadGame(string serializedGame)
@@ -309,7 +330,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         }
 
         bool aiTurnNow = (SideToMove == Side.White && isWhiteAI) || (SideToMove == Side.Black && isBlackAI);
-        if (aiTurnNow)
+        if (aiTurnNow && uciEngine != null) // Thêm kiểm tra uciEngine
         {
             Task.Run(async () =>
             {
@@ -317,7 +338,16 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
                 {
                     int currentDepth = SideToMove == Side.White ? WhiteAIDifficulty : BlackAIDifficulty;
                     Movement bestMove = await uciEngine.GetBestMove(aiThinkTimeMs, currentDepth);
-                    DoAIMove(bestMove);
+
+                    // KIỂM TRA NULL LÚC LOAD GAME
+                    if (bestMove != null)
+                    {
+                        DoAIMove(bestMove);
+                    }
+                    else
+                    {
+                        Debug.LogError("AI Move after load failed: Engine returned a null move.");
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -355,7 +385,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         if (latestHalfMove.CausedCheckmate || latestHalfMove.CausedStalemate)
         {
             if (BoardManager.Instance != null) BoardManager.Instance.SetActiveAllPieces(false);
-            HandleGameEnd(latestHalfMove); // GỌI HÀM LƯU GAME
+            HandleGameEnd(latestHalfMove); // Gọi HandleGameEnd sau khi move
             GameEndedEvent?.Invoke();
         }
         else
@@ -369,30 +399,42 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         return true;
     }
 
+    // 🏆 ĐÃ SỬA LỖI LOGIC TẠI ĐÂY 🏆
     private void HandleGameEnd(HalfMove latestHalfMove)
     {
-        string result;
+        // 1. Logic Xác định kết quả từ góc nhìn của Người chơi
+        Side humanSide = GetHumanSide();
+        Side winningSide = Side.None; // Khởi tạo
+
         if (latestHalfMove.CausedCheckmate)
         {
-            // SideToMove đã được chuyển sang lượt tiếp theo, vì vậy bên thắng là bên ngược lại.
-            Side winningSide = SideToMove == Side.White ? Side.Black : Side.White;
-            result = $"{winningSide} Wins";
+            // Bên thắng là bên vừa thực hiện nước đi (Piece.Owner), 
+            // hoặc bên đối diện với SideToMove (bên bị chiếu hết)
+            winningSide = SideToMove.Complement();
+
+            string humanResultString = (winningSide == humanSide) ? "YOU WIN!" : "YOU LOSE!";
+            Debug.Log($"[GameManager] Game Ended. Result for Human ({humanSide}): {humanResultString}");
+
+            // NOTE: Logic hiển thị chi tiết (ví dụ: ảnh) sẽ nằm trong UIManager.OnGameEnded()
         }
-        else // Gây ra hòa cờ
+        else // Stalemate/Draw
         {
-            result = "Draw";
+            string humanResultString = "DRAW";
+            Debug.Log($"[GameManager] Game Ended. Result for Human ({humanSide}): {humanResultString}");
+            // NOTE: Logic hiển thị chi tiết (ví dụ: ảnh) sẽ nằm trong UIManager.OnGameEnded()
         }
 
+        // 2. Logic xác định chế độ game (Giữ nguyên)
         string mode;
         switch (aiMode)
         {
             case AIMode.HumanVsHuman:
                 mode = "Player vs Player";
                 break;
-            case AIMode.HumanVsAI_White: // AI cầm quân Trắng, người chơi cầm quân Đen
+            case AIMode.HumanVsAI_White:
                 mode = "Player vs AI (Black)";
                 break;
-            case AIMode.HumanVsAI_Black: // AI cầm quân Đen, người chơi cầm quân Trắng
+            case AIMode.HumanVsAI_Black:
                 mode = "Player vs AI (White)";
                 break;
             case AIMode.AIVsAI:
@@ -402,9 +444,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
                 mode = "Unknown";
                 break;
         }
-
-        // Gọi HistoryManager để lưu thông tin ván đấu
-        HistoryManager.SaveGame(result, mode, game.HalfMoveTimeline);
+        // Biến mode này không được sử dụng tiếp, có thể bỏ qua nếu cần tối ưu.
     }
 
     private async Task<bool> TryHandleSpecialMoveBehaviourAsync(SpecialMove specialMove)
@@ -487,7 +527,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         }
 
         if ((move is not SpecialMove specialMove || await TryHandleSpecialMoveBehaviourAsync(specialMove))
-          && TryExecuteMove(move)
+         && TryExecuteMove(move)
         )
         {
             if (move is not SpecialMove && BoardManager.Instance != null) { BoardManager.Instance.TryDestroyVisualPiece(move.End); }
@@ -516,24 +556,42 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         }
 
         bool gameIsOver = game.HalfMoveTimeline.TryGetCurrent(out HalfMove tailHalfMove)
-          && (tailHalfMove.CausedStalemate || tailHalfMove.CausedCheckmate);
+         && (tailHalfMove.CausedStalemate || tailHalfMove.CausedCheckmate);
 
         if (BoardManager.Instance != null)
             BoardManager.Instance.EnsureOnlyPiecesOfSideAreEnabled(SideToMove);
 
+        // KIỂM TRA ENGINE CÓ NULL KHÔNG trước khi gọi AI
         if (!gameIsOver
-          && (SideToMove == Side.White && isWhiteAI
-            || SideToMove == Side.Black && isBlackAI)
+        && uciEngine != null
+        && (SideToMove == Side.White && isWhiteAI
+         || SideToMove == Side.Black && isBlackAI)
         )
         {
             int currentDepth = SideToMove == Side.White ? WhiteAIDifficulty : BlackAIDifficulty;
             Movement bestMove = await uciEngine.GetBestMove(aiThinkTimeMs, currentDepth);
-            DoAIMove(bestMove);
+
+            // SỬA LỖI CHÍNH: KIỂM TRA bestMove CÓ NULL KHÔNG
+            if (bestMove != null)
+            {
+                DoAIMove(bestMove);
+            }
+            else
+            {
+                Debug.LogError("AI Move failed after human move: Engine returned a null move.");
+            }
         }
     }
 
     private void DoAIMove(Movement move)
     {
+        // Thêm kiểm tra Null ở đầu để bảo vệ
+        if (move == null || BoardManager.Instance == null)
+        {
+            Debug.LogError("[GameManager] DoAIMove called with null move or BoardManager is null.");
+            return;
+        }
+
         GameObject movedPiece = BoardManager.Instance.GetPieceGOAtPosition(move.Start);
         if (movedPiece == null)
         {
@@ -554,12 +612,6 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
           endSquareGO.transform,
           (move as PromotionMove)?.PromotionPiece
         );
-
-        if (BoardManager.Instance != null)
-        {
-            BoardManager.Instance.FixAllPieceRotations();
-            BoardManager.Instance.EnsureOnlyPiecesOfSideAreEnabled(SideToMove);
-        }
     }
 
     public bool HasLegalMoves(Piece piece)
