@@ -77,6 +77,9 @@ public class SettingsMenuController : MonoBehaviour
             if (modeText != null) modeText.text = entry.gameMode;
             if (dateText != null) dateText.text = entry.dateTime;
         }
+
+        // Ép buộc cập nhật layout
+        LayoutRebuilder.ForceRebuildLayoutImmediate(historyContentParent.GetComponent<RectTransform>());
     }
 
     void ClearHistoryView()

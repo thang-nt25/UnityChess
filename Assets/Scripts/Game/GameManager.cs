@@ -399,33 +399,23 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         return true;
     }
 
-    // 🏆 ĐÃ SỬA LỖI LOGIC TẠI ĐÂY 🏆
     private void HandleGameEnd(HalfMove latestHalfMove)
     {
-        // 1. Logic Xác định kết quả từ góc nhìn của Người chơi
-        Side humanSide = GetHumanSide();
-        Side winningSide = Side.None; // Khởi tạo
+        // 1. Logic Xác định kết quả
+        string gameResultForHistory;
+        string mode;
 
         if (latestHalfMove.CausedCheckmate)
         {
-            // Bên thắng là bên vừa thực hiện nước đi (Piece.Owner), 
-            // hoặc bên đối diện với SideToMove (bên bị chiếu hết)
-            winningSide = SideToMove.Complement();
-
-            string humanResultString = (winningSide == humanSide) ? "YOU WIN!" : "YOU LOSE!";
-            Debug.Log($"[GameManager] Game Ended. Result for Human ({humanSide}): {humanResultString}");
-
-            // NOTE: Logic hiển thị chi tiết (ví dụ: ảnh) sẽ nằm trong UIManager.OnGameEnded()
+            Side winningSide = SideToMove.Complement();
+            gameResultForHistory = $"{winningSide} Wins";
         }
         else // Stalemate/Draw
         {
-            string humanResultString = "DRAW";
-            Debug.Log($"[GameManager] Game Ended. Result for Human ({humanSide}): {humanResultString}");
-            // NOTE: Logic hiển thị chi tiết (ví dụ: ảnh) sẽ nằm trong UIManager.OnGameEnded()
+            gameResultForHistory = "Draw";
         }
 
-        // 2. Logic xác định chế độ game (Giữ nguyên)
-        string mode;
+        // 2. Logic xác định chế độ game
         switch (aiMode)
         {
             case AIMode.HumanVsHuman:
@@ -444,7 +434,10 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
                 mode = "Unknown";
                 break;
         }
-        // Biến mode này không được sử dụng tiếp, có thể bỏ qua nếu cần tối ưu.
+
+        // 3. Gọi hàm lưu lịch sử
+        HistoryManager.SaveGame(gameResultForHistory, mode, game.HalfMoveTimeline);
+        Debug.Log($"Game history saved: {gameResultForHistory}, Mode: {mode}");
     }
 
     private async Task<bool> TryHandleSpecialMoveBehaviourAsync(SpecialMove specialMove)
