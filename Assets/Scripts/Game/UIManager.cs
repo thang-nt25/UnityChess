@@ -44,28 +44,22 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
     private Side GetPlayerSide()
     {
         // xác định bên của người chơi khi có AI
-        string gameMode = PlayerPrefs.GetString("GameMode", AIMode.HumanVsHuman.ToString());
+        string mode = PlayerPrefs.GetString("GameMode", AIMode.HumanVsHuman.ToString());
 
-        if (gameMode == AIMode.HumanVsAI_White.ToString())
+        if (!string.IsNullOrEmpty(mode))
         {
-            // Người chơi điều khiển Trắng
-            return Side.White;
+            if (mode.Contains(nameof(AIMode.HumanVsAI_White))) return Side.White;
+            if (mode.Contains(nameof(AIMode.HumanVsAI_Black))) return Side.Black;
         }
 
-        if (gameMode == AIMode.HumanVsAI_Black.ToString())
-        {
-            // Người chơi điều khiển Đen
-            return Side.Black;
-        }
-
-        // PvP mặc định trả White (không dùng trong so sánh thắng/thua của PvP)
+        // PvP hoặc không rõ -> trả về White nhưng KHÔNG dùng để so thắng/thua PvP
         return Side.White;
     }
 
     private bool IsPvP()
     {
-        string mode = PlayerPrefs.GetString("GameMode", AIMode.HumanVsHuman.ToString());
-        return mode == AIMode.HumanVsHuman.ToString();
+        var raw = PlayerPrefs.GetString("GameMode", AIMode.HumanVsHuman.ToString());
+        return System.Enum.TryParse<AIMode>(raw, out var mode) && mode == AIMode.HumanVsHuman;
     }
 
     private void Start()
@@ -116,41 +110,50 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
     // hiển thị đúng ảnh theo chế độ
     private void ShowWinner(Side winner)
     {
-        // tắt tất cả trước
+        // Tắt hết trước
         SetResultImageActive(false, false, false);
         if (whiteWinImage) whiteWinImage.gameObject.SetActive(false);
         if (blackWinImage) blackWinImage.gameObject.SetActive(false);
 
-        if (IsPvP())
+        // Đọc mode đúng tên enum
+        var raw = PlayerPrefs.GetString("GameMode", AIMode.HumanVsHuman.ToString());
+        System.Enum.TryParse<AIMode>(raw, out var mode);
+
+        switch (mode)
         {
-            // PvP: show White/Black WIN
-            if (winner == Side.White)
-            {
-                if (whiteWinImage) whiteWinImage.gameObject.SetActive(true);
-            }
-            else
-            {
-                if (blackWinImage) blackWinImage.gameObject.SetActive(true);
-            }
+            case AIMode.HumanVsHuman:
+                // PvP: hiển thị White/Black thắng
+                if (winner == Side.White) { if (whiteWinImage) whiteWinImage.gameObject.SetActive(true); }
+                else { if (blackWinImage) blackWinImage.gameObject.SetActive(true); }
+                if (gameStatusText) gameStatusText.text = $"{winner} wins by checkmate";
+                break;
 
-            if (gameStatusText) gameStatusText.text = $"{winner} wins by checkmate";
+            case AIMode.HumanVsAI_Black:
+                // nghĩa là: Human vs AI (Black) -> BẠN CẦM TRẮNG
+                {
+                    bool playerWin = (winner == Side.White);
+                    SetResultImageActive(playerWin, !playerWin, false);
+                    if (gameStatusText) gameStatusText.text = playerWin
+                        ? $"You Win! ({winner} wins by checkmate)"
+                        : $"You Lose! ({winner} wins by checkmate)";
+                    break;
+                }
+
+            case AIMode.HumanVsAI_White:
+            default:
+                // nghĩa là: Human vs AI (White) -> BẠN CẦM ĐEN
+                {
+                    bool playerWin = (winner == Side.Black);
+                    SetResultImageActive(playerWin, !playerWin, false);
+                    if (gameStatusText) gameStatusText.text = playerWin
+                        ? $"You Win! ({winner} wins by checkmate)"
+                        : $"You Lose! ({winner} wins by checkmate)";
+                    break;
+                }
         }
-        else
-        {
-            // Vs AI: show YOU WIN / YOU LOSE
-            Side playerSide = GetPlayerSide();
-            bool playerWin = (winner == playerSide);
 
-            SetResultImageActive(playerWin, !playerWin, false);
-
-            if (gameStatusText)
-                gameStatusText.text = playerWin
-                    ? $"You Win! ({winner} wins by checkmate)"
-                    : $"You Lose! ({winner} wins by checkmate)";
-        }
-
-        if (resultPanel != null) resultPanel.SetActive(true);
-        Debug.Log($"[GameResult] Winner: {winner}, PvP={IsPvP()}");
+        if (resultPanel) resultPanel.SetActive(true);
+        Debug.Log($"[GameResult] Winner={winner}, Mode={mode} (Mapping: AI_White=HumanBlack, AI_Black=HumanWhite)");
     }
 
     private void OnNewGameStarted()
