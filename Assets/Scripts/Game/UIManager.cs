@@ -156,6 +156,7 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         Debug.Log($"[GameResult] Winner={winner}, Mode={mode} (Mapping: AI_White=HumanBlack, AI_Black=HumanWhite)");
     }
 
+
     private void OnNewGameStarted()
     {
         UpdateGameStringInputField();
@@ -197,36 +198,82 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         SetBoardInteraction(true);
     }
 
-    private void OnGameEnded()
+    public void OnGameEnded()
     {
-        if (GameManager.Instance.HalfMoveTimeline == null ||
-            !GameManager.Instance.HalfMoveTimeline.TryGetCurrent(out HalfMove latestHalfMove))
-        {
-            if (gameStatusText) gameStatusText.text = "Game Ended (Unknown Result/Error)";
-            SetBoardInteraction(false);
-            if (resultPanel != null) resultPanel.SetActive(true);
+        var gm = GameManager.Instance;
+        if (gm == null)
             return;
-        }
 
-        if (latestHalfMove.CausedCheckmate)
+        // Tắt hết kết quả trước
+        SetResultImageActive(false, false, false);
+        if (whiteWinImage) whiteWinImage.gameObject.SetActive(false);
+        if (blackWinImage) blackWinImage.gameObject.SetActive(false);
+
+        switch (gm.LastEndReason)
         {
-            Side winner = GameManager.Instance.SideToMove.Complement();
-            ShowWinner(winner);
-        }
-        else if (latestHalfMove.CausedStalemate)
-        {
-            SetResultImageActive(false, false, true);
-            if (gameStatusText) gameStatusText.text = "Draw (Stalemate)";
-        }
-        else
-        {
-            SetResultImageActive(false, false, true);
-            if (gameStatusText) gameStatusText.text = "Draw (Game Rule)";
+            case GameManager.GameEndReason.Checkmate:
+                ShowWinner(gm.LastWinner); // Gọi phương thức hiển thị người thắng
+                if (gameStatusText) gameStatusText.text = $"{gm.LastWinner} wins by checkmate";
+                break;
+
+            case GameManager.GameEndReason.Stalemate:
+                SetResultImageActive(false, false, true); // Hòa
+                if (gameStatusText) gameStatusText.text = "Draw (Stalemate)";
+                break;
+
+            case GameManager.GameEndReason.Timeout:
+                if (IsPvP())
+                {
+                    if (gm.LastWinner == Side.White)
+                    {
+                        if (whiteWinImage) whiteWinImage.gameObject.SetActive(true);
+                    }
+                    else
+                    {
+                        if (blackWinImage) blackWinImage.gameObject.SetActive(true);
+                    }
+
+                    if (gameStatusText) gameStatusText.text = $"{gm.LastWinner} wins (Timeout)";
+                    if (resultPanel) resultPanel.SetActive(true);
+                }
+                else
+                {
+                    bool playerWin = (gm.LastWinner == GetPlayerSide());
+                    SetResultImageActive(playerWin, !playerWin, false);
+
+                    if (gameStatusText) gameStatusText.text = playerWin
+                        ? $"You Win! ({gm.LastWinner} wins by Timeout)"
+                        : $"You Lose! ({gm.LastWinner} wins by Timeout)";
+                }
+                break;
+
+            case GameManager.GameEndReason.Draw:
+            case GameManager.GameEndReason.None:
+            default:
+                if (GameManager.Instance.HalfMoveTimeline != null &&
+                    GameManager.Instance.HalfMoveTimeline.TryGetCurrent(out HalfMove latestHalfMove))
+                {
+                    if (latestHalfMove.CausedStalemate)
+                    {
+                        SetResultImageActive(false, false, true);
+                        if (gameStatusText) gameStatusText.text = "Draw (Stalemate)";
+                    }
+                    else if (latestHalfMove.CausedCheckmate)
+                    {
+                        Side winner = GameManager.Instance.SideToMove.Complement();
+                        ShowWinner(winner);
+                        if (gameStatusText) gameStatusText.text = $"{winner} wins by checkmate";
+                    }
+                }
+                break;
         }
 
         SetBoardInteraction(false);
         if (resultPanel != null) resultPanel.SetActive(true);
+        Time.timeScale = 0f; // Dừng thời gian sau khi kết thúc ván đấu
     }
+
+
 
     private void OnMoveExecuted()
     {

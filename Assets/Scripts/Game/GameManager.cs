@@ -13,6 +13,9 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     public static event Action GameEndedEvent;
     public static event Action GameResetToHalfMoveEvent;
     public static event Action MoveExecutedEvent;
+    public enum GameEndReason { None, Checkmate, Stalemate, Timeout, Draw }
+    public GameEndReason LastEndReason { get; private set; } = GameEndReason.None;
+    public Side LastWinner { get; private set; } = Side.None;
 
     [SerializeField] private AudioSource sfxSource;
     [SerializeField] private AudioClip sfxMove;
@@ -20,6 +23,16 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
 
     [Header("AI Settings")]
     [SerializeField] private int aiThinkTimeMs = 750;
+    [Header("Time Control")]
+    [SerializeField] private TMPro.TextMeshProUGUI whiteTimeText;
+    [SerializeField] private TMPro.TextMeshProUGUI blackTimeText;
+    [SerializeField] private bool enableTimer = true;
+
+    private float whiteRemain;
+    private float blackRemain;
+    private float lastTickRealtime;
+    private bool running;
+    private bool unlimited;
 
     private int WhiteAIDifficulty = 3;
     private int BlackAIDifficulty = 3;
@@ -220,6 +233,92 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
             _ => Side.White
         };
     }
+    private void InitClock()
+    {
+        int sec = TimePrefs.GetSecondsOrDefault();
+        unlimited = TimePrefs.IsUnlimited(sec);
+
+        if (unlimited)
+        {
+            whiteRemain = blackRemain = Mathf.Infinity;
+            running = false;
+            UpdateClockUI();
+            return;
+        }
+
+        whiteRemain = blackRemain = sec;
+        running = true;
+        lastTickRealtime = Time.realtimeSinceStartup;
+        UpdateClockUI();
+    }
+    private void UpdateClockUI()
+    {
+        if (whiteTimeText)
+            whiteTimeText.text = FormatTime(whiteRemain);
+        if (blackTimeText)
+            blackTimeText.text = FormatTime(blackRemain);
+    }
+
+    private string FormatTime(float sec)
+    {
+        if (float.IsInfinity(sec)) return "∞";
+        sec = Mathf.Max(0, sec);
+        int m = Mathf.FloorToInt(sec / 60f);
+        int s = Mathf.FloorToInt(sec % 60f);
+        return $"{m:00}:{s:00}";
+    }
+
+    private void OnTimeOut(Side side)
+    {
+        running = false;
+        Debug.Log($"{side} hết giờ!");
+        BoardManager.Instance?.SetActiveAllPieces(false);
+        var winner = side.Complement();
+
+        string mode = aiMode switch
+        {
+            AIMode.HumanVsHuman => "Player vs Player",
+            AIMode.HumanVsAI_White => "Player vs AI (Black)",
+            AIMode.HumanVsAI_Black => "Player vs AI (White)",
+            AIMode.AIVsAI => "AI vs AI",
+            _ => "Unknown"
+        };
+
+        // Lưu lịch sử (giống HandleGameEnd)
+        HistoryManager.SaveGame($"{winner} Wins", mode, game.HalfMoveTimeline);
+
+        // Gọi OnGameEnded() để hiển thị kết quả ngay lập tức
+        LastEndReason = GameEndReason.Timeout;
+        LastWinner = winner;
+        UIManager.Instance?.OnGameEnded(); // Hiển thị kết quả
+
+        // Phát sự kiện kết thúc ván đấu
+        GameEndedEvent?.Invoke();
+    }
+
+
+    private void Update()
+    {
+        if (!enableTimer || !running || unlimited) return;
+
+        float now = Time.realtimeSinceStartup;
+        float delta = now - lastTickRealtime;
+        lastTickRealtime = now;
+
+        // Trừ thời gian của bên đang đi
+        if (SideToMove == Side.White)
+            whiteRemain -= delta;
+        else
+            blackRemain -= delta;
+
+        if (whiteRemain <= 0)
+            OnTimeOut(Side.White);  // Gọi khi hết giờ
+        else if (blackRemain <= 0)
+            OnTimeOut(Side.Black);  // Gọi khi hết giờ
+
+        UpdateClockUI();  // Cập nhật giao diện đồng hồ
+    }
+
 
     public async void StartNewGame(bool isWhiteAI = false, bool isBlackAI = false)
     {
@@ -234,6 +333,9 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         }
 
         game = new Game();
+        LastEndReason = GameEndReason.None;
+        LastWinner = Side.None;
+        InitClock();
         _halfMoveIndicesForUndo = new Stack<int>();
         _halfMoveIndicesForUndo.Push(game.HalfMoveTimeline.HeadIndex);
 
@@ -401,44 +503,43 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
 
     private void HandleGameEnd(HalfMove latestHalfMove)
     {
-        // 1. Logic Xác định kết quả
         string gameResultForHistory;
         string mode;
+        string reason;              // 👈 THÊM reason
+        running = false;
+
+        Side winningSide = Side.None;
 
         if (latestHalfMove.CausedCheckmate)
         {
-            Side winningSide = SideToMove.Complement();
+            winningSide = SideToMove.Complement();
             gameResultForHistory = $"{winningSide} Wins";
+            reason = "Checkmate";
+            LastEndReason = GameEndReason.Checkmate;
+            LastWinner = winningSide;
         }
-        else // Stalemate/Draw
+        else
         {
             gameResultForHistory = "Draw";
+            reason = "Stalemate";
+            LastEndReason = GameEndReason.Stalemate;
+            LastWinner = Side.None;
         }
 
-        // 2. Logic xác định chế độ game
         switch (aiMode)
         {
-            case AIMode.HumanVsHuman:
-                mode = "Player vs Player";
-                break;
-            case AIMode.HumanVsAI_White:
-                mode = "Player vs AI (Black)";
-                break;
-            case AIMode.HumanVsAI_Black:
-                mode = "Player vs AI (White)";
-                break;
-            case AIMode.AIVsAI:
-                mode = "AI vs AI";
-                break;
-            default:
-                mode = "Unknown";
-                break;
+            case AIMode.HumanVsHuman: mode = "Player vs Player"; break;
+            case AIMode.HumanVsAI_White: mode = "Player vs AI (Black)"; break;
+            case AIMode.HumanVsAI_Black: mode = "Player vs AI (White)"; break;
+            case AIMode.AIVsAI: mode = "AI vs AI"; break;
+            default: mode = "Unknown"; break;
         }
 
-        // 3. Gọi hàm lưu lịch sử
         HistoryManager.SaveGame(gameResultForHistory, mode, game.HalfMoveTimeline);
         Debug.Log($"Game history saved: {gameResultForHistory}, Mode: {mode}");
+        UIManager.Instance?.OnGameEnded();
     }
+
 
     private async Task<bool> TryHandleSpecialMoveBehaviourAsync(SpecialMove specialMove)
     {
@@ -519,11 +620,16 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
             promotionMove.SetPromotionPiece(promotionPiece);
         }
 
+        // ✅ SỬA: toàn bộ khối xử lý phải nằm trong { } của if này
         if ((move is not SpecialMove specialMove || await TryHandleSpecialMoveBehaviourAsync(specialMove))
-         && TryExecuteMove(move)
-        )
+            && TryExecuteMove(move))
         {
-            if (move is not SpecialMove && BoardManager.Instance != null) { BoardManager.Instance.TryDestroyVisualPiece(move.End); }
+            if (!unlimited) lastTickRealtime = Time.realtimeSinceStartup; // reset mốc sau khi đổi lượt
+
+            if (move is not SpecialMove && BoardManager.Instance != null)
+            {
+                BoardManager.Instance.TryDestroyVisualPiece(move.End);
+            }
 
             if (move is PromotionMove && BoardManager.Instance != null)
             {
@@ -549,22 +655,19 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         }
 
         bool gameIsOver = game.HalfMoveTimeline.TryGetCurrent(out HalfMove tailHalfMove)
-         && (tailHalfMove.CausedStalemate || tailHalfMove.CausedCheckmate);
+            && (tailHalfMove.CausedStalemate || tailHalfMove.CausedCheckmate);
 
         if (BoardManager.Instance != null)
             BoardManager.Instance.EnsureOnlyPiecesOfSideAreEnabled(SideToMove);
 
         // KIỂM TRA ENGINE CÓ NULL KHÔNG trước khi gọi AI
         if (!gameIsOver
-        && uciEngine != null
-        && (SideToMove == Side.White && isWhiteAI
-         || SideToMove == Side.Black && isBlackAI)
-        )
+            && uciEngine != null
+            && ((SideToMove == Side.White && isWhiteAI) || (SideToMove == Side.Black && isBlackAI)))
         {
             int currentDepth = SideToMove == Side.White ? WhiteAIDifficulty : BlackAIDifficulty;
             Movement bestMove = await uciEngine.GetBestMove(aiThinkTimeMs, currentDepth);
 
-            // SỬA LỖI CHÍNH: KIỂM TRA bestMove CÓ NULL KHÔNG
             if (bestMove != null)
             {
                 DoAIMove(bestMove);
@@ -575,6 +678,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
             }
         }
     }
+
 
     private void DoAIMove(Movement move)
     {
