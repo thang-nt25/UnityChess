@@ -305,18 +305,31 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         float delta = now - lastTickRealtime;
         lastTickRealtime = now;
 
-        // Trừ thời gian của bên đang đi
-        if (SideToMove == Side.White)
-            whiteRemain -= delta;
+        Side current = SideToMove;
+
+        Side humanSide = GetHumanSide();
+
+        if (humanSide == Side.Black)
+        {
+            if (current == Side.White)
+                blackRemain -= delta;
+            else
+                whiteRemain -= delta;
+        }
         else
-            blackRemain -= delta;
+        {
+            if (current == Side.White)
+                whiteRemain -= delta;
+            else
+                blackRemain -= delta;
+        }
 
         if (whiteRemain <= 0)
-            OnTimeOut(Side.White);  // Gọi khi hết giờ
+            OnTimeOut(Side.White);
         else if (blackRemain <= 0)
-            OnTimeOut(Side.Black);  // Gọi khi hết giờ
+            OnTimeOut(Side.Black);
 
-        UpdateClockUI();  // Cập nhật giao diện đồng hồ
+        UpdateClockUI();
     }
 
 
