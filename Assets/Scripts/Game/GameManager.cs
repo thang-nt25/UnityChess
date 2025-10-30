@@ -26,13 +26,13 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     [Header("Time Control")]
     [SerializeField] private TMPro.TextMeshProUGUI whiteTimeText;
     [SerializeField] private TMPro.TextMeshProUGUI blackTimeText;
-    [SerializeField] private bool enableTimer = true;
+    [SerializeField] public bool enableTimer = true;
 
     private float whiteRemain;
     private float blackRemain;
     private float lastTickRealtime;
-    private bool running;
-    private bool unlimited;
+    public bool running { get; set; }
+    public bool unlimited;
 
     private int WhiteAIDifficulty = 3;
     private int BlackAIDifficulty = 3;
@@ -781,4 +781,16 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
 
         return square.position;
     }
+
+    public void PauseTimer()
+    {
+        running = false;
+    }
+
+    public void ResumeTimer()
+    {
+        lastTickRealtime = Time.realtimeSinceStartup; // reset mốc thời gian
+        running = true;
+    }
+
 }

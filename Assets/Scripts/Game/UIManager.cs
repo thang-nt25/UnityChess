@@ -196,6 +196,7 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         }
 
         SetBoardInteraction(true);
+        GameManager.Instance.running = true;
     }
 
     public void OnGameEnded()
@@ -271,6 +272,8 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         SetBoardInteraction(false);
         if (resultPanel != null) resultPanel.SetActive(true);
         Time.timeScale = 0f; // Dừng thời gian sau khi kết thúc ván đấu
+
+        GameManager.Instance.running = false;
     }
 
 
@@ -487,29 +490,40 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         isPaused = !isPaused;
         Time.timeScale = isPaused ? 0f : 1f;
 
-        if (pauseButtonText) pauseButtonText.text = isPaused ? "Continue" : "Pause";
+        if (pauseButtonText)
+            pauseButtonText.text = isPaused ? "Continue" : "Pause";
 
         if (isPaused)
         {
-            if (gameStatusText) gameStatusText.text = "Game Paused";
+            if (gameStatusText)
+                gameStatusText.text = "Game Paused";
+
             SetResultImageActive(false, false, false);
             if (whiteWinImage) whiteWinImage.gameObject.SetActive(false);
             if (blackWinImage) blackWinImage.gameObject.SetActive(false);
             if (resultPanel != null) resultPanel.SetActive(false);
+
+            GameManager.Instance.PauseTimer();
         }
         else
         {
+            if (!GameManager.Instance.unlimited && GameManager.Instance.enableTimer)
+                GameManager.Instance.ResumeTimer();
+
             if (GameManager.Instance.HalfMoveTimeline != null &&
                 GameManager.Instance.HalfMoveTimeline.TryGetCurrent(out HalfMove latestHalfMove))
             {
                 if (latestHalfMove.CausedCheckmate || latestHalfMove.CausedStalemate)
                     OnGameEnded();
-                else if (gameStatusText) gameStatusText.text = latestHalfMove.CausedCheck ? "Check!" : "";
+                else if (gameStatusText)
+                    gameStatusText.text = latestHalfMove.CausedCheck ? "Check!" : "";
             }
         }
 
         SetBoardInteraction(!isPaused);
     }
+
+
 
     public void OnResignButtonClicked()
     {
@@ -539,6 +553,8 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
                 : "You Resigned. Game Over (You Lose)";
 
         Time.timeScale = 0f;
+        GameManager.Instance.running = false;
+
         SetBoardInteraction(false);
         if (resultPanel != null) resultPanel.SetActive(true);
     }
@@ -556,6 +572,8 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
         SetResultImageActive(false, false, true);
         Time.timeScale = 0f;
+        GameManager.Instance.running = false;
+
         if (gameStatusText) gameStatusText.text = "Game Drawn (Agreement)";
         SetBoardInteraction(false);
         if (resultPanel != null) resultPanel.SetActive(true);
