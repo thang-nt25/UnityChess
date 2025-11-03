@@ -4,11 +4,21 @@ using System.Threading.Tasks;
 using UnityChess;
 using UnityChess.Engine;
 using UnityEngine;
+using UnityEngine.SceneManagement; // Đảm bảo bạn có dòng này
 using static UnityChess.SquareUtil;
 using Debug = UnityEngine.Debug;
 
 public class GameManager : MonoBehaviourSingleton<GameManager>
 {
+    // --- REPLAY ---
+    // Đã XÓA 2 biến normalGameUI và replayGameUI (vì chúng ta không cần nữa)
+    // --- END REPLAY ---
+
+    // Đã đổi 'private' thành 'public' để UIManager có thể đọc
+    public bool isReplayMode { get; private set; } = false;
+    private List<string> replayMoveList; // Danh sách nước đi ("e2e4", "e7e5"...)
+    private int currentReplayIndex = -1; // "Con trỏ" xem lại
+
     public static event Action NewGameStartedEvent;
     public static event Action GameEndedEvent;
     public static event Action GameResetToHalfMoveEvent;
@@ -42,8 +52,8 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     public enum AIMode
     {
         HumanVsHuman,
-        HumanVsAI_White, // Người chơi cầm Đen (AI cầm Trắng) -> Board xoay 180 độ
-        HumanVsAI_Black, // Người chơi cầm Trắng (AI cầm Đen) -> Board xoay 0 độ
+        HumanVsAI_White,
+        HumanVsAI_Black,
         AIVsAI
     }
 
@@ -133,22 +143,35 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
 
     public void Awake()
     {
-        string desiredMode = PlayerPrefs.GetString("GameMode", AIMode.HumanVsHuman.ToString());
-        this.WhiteAIDifficulty = PlayerPrefs.GetInt("WhiteAIDifficulty", 3);
-        this.BlackAIDifficulty = PlayerPrefs.GetInt("BlackAIDifficulty", 3);
-
-        string enumModeString = desiredMode.Replace("PlayerVs", "HumanVs");
-
-        if (Enum.TryParse(enumModeString, out AIMode parsedMode))
+        // Logic kiểm tra Replay (từ MainMenu) vẫn giữ nguyên
+        if (ReplayManager.movesToReplay != null)
         {
-            this.aiMode = parsedMode;
+            isReplayMode = true;
+            replayMoveList = new List<string>(ReplayManager.movesToReplay);
+            ReplayManager.movesToReplay = null;
         }
         else
         {
-            this.aiMode = AIMode.HumanVsHuman;
-        }
+            // Đây là game bình thường
+            isReplayMode = false;
 
-        RestartWithCurrentMode();
+            string desiredMode = PlayerPrefs.GetString("GameMode", AIMode.HumanVsHuman.ToString());
+            this.WhiteAIDifficulty = PlayerPrefs.GetInt("WhiteAIDifficulty", 3);
+            this.BlackAIDifficulty = PlayerPrefs.GetInt("BlackAIDifficulty", 3);
+
+            string enumModeString = desiredMode.Replace("PlayerVs", "HumanVs");
+
+            if (Enum.TryParse(enumModeString, out AIMode parsedMode))
+            {
+                this.aiMode = parsedMode;
+            }
+            else
+            {
+                this.aiMode = AIMode.HumanVsHuman;
+            }
+
+            RestartWithCurrentMode();
+        }
     }
 
     private void OnApplicationQuit()
@@ -211,6 +234,26 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
             [GameSerializationType.PGN] = new PGNSerializer()
         };
 
+        // --- REFACTOR ---
+        // Đã SỬA LẠI hàm Start()
+        // Xóa các hàm SetupReplayMode() và SetupNormalGameMode()
+        // vì chúng ta không còn 2 UI riêng biệt nữa
+        if (isReplayMode)
+        {
+            // Nếu là Replay (từ MainMenu), bắt đầu game rỗng và tắt input
+            StartNewGame(false, false);
+            Debug.Log("GameManager: Đã vào chế độ REPLAY!");
+            if (BoardManager.Instance != null) BoardManager.Instance.SetActiveAllPieces(false);
+            currentReplayIndex = -1;
+        }
+        else
+        {
+            // Nếu là game bình thường, không cần làm gì thêm
+            // vì Awake() đã gọi RestartWithCurrentMode()
+            Debug.Log("GameManager: Đã vào chế độ chơi bình thường.");
+        }
+        // --- END REFACTOR ---
+
 #if DEBUG_VIEW
         unityChessDebug.gameObject.SetActive(true);
         unityChessDebug.enabled = true;
@@ -229,7 +272,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         {
             AIMode.HumanVsAI_White => Side.Black,
             AIMode.HumanVsAI_Black => Side.White,
-            AIMode.AIVsAI => Side.White, // Giả sử hiển thị Trắng là người chơi chính nếu AIVsAI
+            AIMode.AIVsAI => Side.White,
             _ => Side.White
         };
     }
@@ -270,6 +313,8 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
 
     private void OnTimeOut(Side side)
     {
+        if (isReplayMode) return;
+
         running = false;
         Debug.Log($"{side} hết giờ!");
         BoardManager.Instance?.SetActiveAllPieces(false);
@@ -284,21 +329,18 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
             _ => "Unknown"
         };
 
-        // Lưu lịch sử (giống HandleGameEnd)
         HistoryManager.SaveGame($"{winner} Wins", mode, game.HalfMoveTimeline);
 
-        // Gọi OnGameEnded() để hiển thị kết quả ngay lập tức
         LastEndReason = GameEndReason.Timeout;
         LastWinner = winner;
-        UIManager.Instance?.OnGameEnded(); // Hiển thị kết quả
-
-        // Phát sự kiện kết thúc ván đấu
+        UIManager.Instance?.OnGameEnded();
         GameEndedEvent?.Invoke();
     }
 
 
     private void Update()
     {
+        if (isReplayMode) return;
         if (!enableTimer || !running || unlimited) return;
 
         float now = Time.realtimeSinceStartup;
@@ -306,7 +348,6 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         lastTickRealtime = now;
 
         Side current = SideToMove;
-
         Side humanSide = GetHumanSide();
 
         if (humanSide == Side.Black)
@@ -363,15 +404,12 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         {
             if (uciEngine == null)
             {
-                // Khởi tạo engine nếu chưa có
                 uciEngine = new StockfishUCIEngine();
                 uciEngine.Start();
             }
 
-            // Bổ sung: Chờ một chút để engine khởi động hoàn toàn (Rất quan trọng)
             await Task.Delay(300);
 
-            // KIỂM TRA ENGINE CÓ KHỞI TẠO THÀNH CÔNG KHÔNG
             if (uciEngine == null)
             {
                 Debug.LogError("[GameManager] UCI Engine is null after attempted initialization. Cannot start AI game.");
@@ -384,18 +422,19 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
             if (BoardManager.Instance != null)
             {
                 BoardManager.Instance.FixAllPieceRotations();
-                BoardManager.Instance.EnsureOnlyPiecesOfSideAreEnabled(SideToMove);
+                if (!isReplayMode)
+                    BoardManager.Instance.EnsureOnlyPiecesOfSideAreEnabled(SideToMove);
             }
 
             bool aiTurnNow = (SideToMove == Side.White && isWhiteAI) || (SideToMove == Side.Black && isBlackAI);
-            if (aiTurnNow)
+
+            if (aiTurnNow && !isReplayMode)
             {
                 try
                 {
                     int currentDepth = SideToMove == Side.White ? WhiteAIDifficulty : BlackAIDifficulty;
                     Movement bestMove = await uciEngine.GetBestMove(aiThinkTimeMs, currentDepth);
 
-                    // SỬA LỖI CHÍNH: KIỂM TRA bestMove CÓ NULL KHÔNG (Dòng 286 trong log)
                     if (bestMove != null)
                     {
                         DoAIMove(bestMove);
@@ -417,7 +456,8 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
             if (BoardManager.Instance != null)
             {
                 BoardManager.Instance.FixAllPieceRotations();
-                BoardManager.Instance.EnsureOnlyPiecesOfSideAreEnabled(SideToMove);
+                if (!isReplayMode)
+                    BoardManager.Instance.EnsureOnlyPiecesOfSideAreEnabled(SideToMove);
             }
         }
     }
@@ -425,18 +465,17 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     public string SerializeGame()
     {
         return serializersByType.TryGetValue(selectedSerializationType, out IGameSerializer serializer)
-          ? serializer?.Serialize(game)
-          : null;
+        ? serializer?.Serialize(game)
+        : null;
     }
 
     public void LoadGame(string serializedGame)
     {
         game = serializersByType[selectedSerializationType].Deserialize(serializedGame);
         NewGameStartedEvent?.Invoke();
-
         ApplyAIModeToFlags();
-
         Side humanSide = GetHumanSide();
+
         if (BoardManager.Instance != null)
         {
             BoardManager.Instance.RotateBoardForSide(humanSide);
@@ -445,7 +484,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         }
 
         bool aiTurnNow = (SideToMove == Side.White && isWhiteAI) || (SideToMove == Side.Black && isBlackAI);
-        if (aiTurnNow && uciEngine != null) // Thêm kiểm tra uciEngine
+        if (aiTurnNow && uciEngine != null)
         {
             Task.Run(async () =>
             {
@@ -454,7 +493,6 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
                     int currentDepth = SideToMove == Side.White ? WhiteAIDifficulty : BlackAIDifficulty;
                     Movement bestMove = await uciEngine.GetBestMove(aiThinkTimeMs, currentDepth);
 
-                    // KIỂM TRA NULL LÚC LOAD GAME
                     if (bestMove != null)
                     {
                         DoAIMove(bestMove);
@@ -474,6 +512,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
 
     public void ResetGameToHalfMoveIndex(int halfMoveIndex)
     {
+        if (game == null) return; // Bảo vệ
         if (!game.ResetGameToHalfMoveIndex(halfMoveIndex)) return;
 
         if (UIManager.Instance != null) UIManager.Instance.SetActivePromotionUI(false);
@@ -485,22 +524,38 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         {
             BoardManager.Instance.RotateBoardForSide(humanSide);
             BoardManager.Instance.FixAllPieceRotations();
-            BoardManager.Instance.EnsureOnlyPiecesOfSideAreEnabled(SideToMove);
+
+            if (isReplayMode)
+            {
+                BoardManager.Instance.SetActiveAllPieces(false);
+            }
+            else
+            {
+                BoardManager.Instance.EnsureOnlyPiecesOfSideAreEnabled(SideToMove);
+            }
         }
     }
 
     private bool TryExecuteMove(Movement move)
     {
+        if (game == null) return false; // Bảo vệ
         if (!game.TryExecuteMove(move))
         {
             return false;
         }
 
         HalfMoveTimeline.TryGetCurrent(out HalfMove latestHalfMove);
+
+        if (isReplayMode)
+        {
+            MoveExecutedEvent?.Invoke();
+            return true; // Bỏ qua phần xử lý kết thúc game
+        }
+
         if (latestHalfMove.CausedCheckmate || latestHalfMove.CausedStalemate)
         {
             if (BoardManager.Instance != null) BoardManager.Instance.SetActiveAllPieces(false);
-            HandleGameEnd(latestHalfMove); // Gọi HandleGameEnd sau khi move
+            HandleGameEnd(latestHalfMove);
             GameEndedEvent?.Invoke();
         }
         else
@@ -516,9 +571,11 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
 
     private void HandleGameEnd(HalfMove latestHalfMove)
     {
+        if (isReplayMode) return;
+
         string gameResultForHistory;
         string mode;
-        string reason;              // 👈 THÊM reason
+        string reason;
         running = false;
 
         Side winningSide = Side.None;
@@ -569,6 +626,18 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
                 return true;
 
             case PromotionMove { PromotionPiece: null } promotionMove:
+                if (isReplayMode)
+                {
+                    promotionMove.SetPromotionPiece(PromotionUtil.GeneratePromotionPiece(ElectedPiece.Queen, SideToMove));
+
+                    if (BoardManager.Instance != null)
+                    {
+                        BoardManager.Instance.TryDestroyVisualPiece(promotionMove.Start);
+                        BoardManager.Instance.TryDestroyVisualPiece(promotionMove.End);
+                        BoardManager.Instance.CreateAndPlacePieceGO(promotionMove.PromotionPiece, promotionMove.End);
+                    }
+                    return true;
+                }
                 if (UIManager.Instance != null) UIManager.Instance.SetActivePromotionUI(true);
                 if (BoardManager.Instance != null) BoardManager.Instance.SetActiveAllPieces(false);
 
@@ -622,7 +691,10 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     {
         Square endSquare = new Square(closestBoardSquareTransform.name);
 
-        if (!game.TryGetLegalMove(movedPieceInitialSquare, endSquare, out Movement move))
+        // --- REFACTOR ---
+        // Thêm kiểm tra 'game' null
+        if (game == null || !game.TryGetLegalMove(movedPieceInitialSquare, endSquare, out Movement move))
+        // --- END REFACTOR ---
         {
             movedPieceTransform.position = movedPieceTransform.parent.position;
             return;
@@ -633,11 +705,10 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
             promotionMove.SetPromotionPiece(promotionPiece);
         }
 
-        // ✅ SỬA: toàn bộ khối xử lý phải nằm trong { } của if này
         if ((move is not SpecialMove specialMove || await TryHandleSpecialMoveBehaviourAsync(specialMove))
             && TryExecuteMove(move))
         {
-            if (!unlimited) lastTickRealtime = Time.realtimeSinceStartup; // reset mốc sau khi đổi lượt
+            if (!unlimited) lastTickRealtime = Time.realtimeSinceStartup;
 
             if (move is not SpecialMove && BoardManager.Instance != null)
             {
@@ -648,6 +719,15 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
             {
                 movedPieceTransform = BoardManager.Instance.GetPieceGOAtPosition(move.End).transform;
             }
+
+            // --- REFACTOR ---
+            // Thêm kiểm tra 'movedPieceTransform' null
+            if (movedPieceTransform == null)
+            {
+                Debug.LogError($"OnPieceMoved: movedPieceTransform became null after promotion/move.");
+                return;
+            }
+            // --- END REFACTOR ---
 
             Vector3 center = GetSquareWorldCenter(closestBoardSquareTransform);
             float keepWorldY = movedPieceTransform.position.y;
@@ -667,14 +747,17 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
             BoardManager.Instance.FixAllPieceRotations();
         }
 
-        bool gameIsOver = game.HalfMoveTimeline.TryGetCurrent(out HalfMove tailHalfMove)
+        // --- REFACTOR ---
+        // Thêm kiểm tra 'game' null
+        bool gameIsOver = game != null && game.HalfMoveTimeline.TryGetCurrent(out HalfMove tailHalfMove)
             && (tailHalfMove.CausedStalemate || tailHalfMove.CausedCheckmate);
+        // --- END REFACTOR ---
 
         if (BoardManager.Instance != null)
             BoardManager.Instance.EnsureOnlyPiecesOfSideAreEnabled(SideToMove);
 
-        // KIỂM TRA ENGINE CÓ NULL KHÔNG trước khi gọi AI
         if (!gameIsOver
+            && !isReplayMode
             && uciEngine != null
             && ((SideToMove == Side.White && isWhiteAI) || (SideToMove == Side.Black && isBlackAI)))
         {
@@ -695,7 +778,6 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
 
     private void DoAIMove(Movement move)
     {
-        // Thêm kiểm tra Null ở đầu để bảo vệ
         if (move == null || BoardManager.Instance == null)
         {
             Debug.LogError("[GameManager] DoAIMove called with null move or BoardManager is null.");
@@ -717,15 +799,16 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         }
 
         OnPieceMoved(
-          move.Start,
-          movedPiece.transform,
-          endSquareGO.transform,
-          (move as PromotionMove)?.PromotionPiece
+        move.Start,
+        movedPiece.transform,
+        endSquareGO.transform,
+        (move as PromotionMove)?.PromotionPiece
         );
     }
 
     public bool HasLegalMoves(Piece piece)
     {
+        if (game == null) return false; // Bảo vệ
         return game.TryGetLegalMovesForPiece(piece, out _);
     }
 
@@ -759,6 +842,8 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
 
     public void UndoLastMove()
     {
+        if (isReplayMode) return;
+
         if (_halfMoveIndicesForUndo == null || _halfMoveIndicesForUndo.Count <= 1)
         {
             Debug.Log("Cannot undo: No moves or only initial state left.");
@@ -789,8 +874,141 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
 
     public void ResumeTimer()
     {
-        lastTickRealtime = Time.realtimeSinceStartup; // reset mốc thời gian
+        lastTickRealtime = Time.realtimeSinceStartup;
         running = true;
     }
 
+    // --- REFACTOR ---
+    // Đã XÓA các hàm Replay/UI CŨ (SetupReplayMode, SetupNormalGameMode, ExitReplay)
+    // Giữ lại các hàm OnClick và Replay MỚI (đã tích hợp)
+    // --- END REFACTOR ---
+
+    // Nút "New Game" sẽ gọi hàm này (thông qua UIManager)
+    public void OnClick_NewGame()
+    {
+        Time.timeScale = 1f;
+
+        // --- REFACTOR ---
+        // Thêm dòng này để thoát chế độ Replay nếu đang Replay
+        isReplayMode = false;
+        // --- END REFACTOR ---
+
+        RestartWithLastMode();
+    }
+
+    // Gán nút "Watch Replay" (Xem Replay) vào hàm này
+    public void OnClick_WatchReplay()
+    {
+        Debug.Log("GameManager: Bắt đầu xem lại (chế độ tích hợp)...");
+        Time.timeScale = 1f;
+
+        // 1. Chuyển đổi Timeline thành List<string>
+        List<string> moveNotations = new List<string>();
+        for (int i = 0; i <= HalfMoveTimeline.HeadIndex; i++)
+        {
+            UnityChess.HalfMove halfMove = HalfMoveTimeline[i];
+            moveNotations.Add($"{halfMove.Move.Start.ToString()}{halfMove.Move.End.ToString()}");
+        }
+
+        // 2. Cài đặt các biến Replay
+        this.replayMoveList = moveNotations;
+        this.isReplayMode = true;
+        this.currentReplayIndex = -1; // Reset con trỏ
+
+        // 3. Bảo UIManager ẩn màn hình kết quả ("BLACK WIN")
+        if (UIManager.Instance != null)
+        {
+            UIManager.Instance.CloseResultScreen(); // Dùng hàm có sẵn của UIManager
+        }
+
+        // 4. Reset bàn cờ về vị trí ban đầu
+        ResetGameToHalfMoveIndex(-1);
+
+        // 5. Tắt khả năng người chơi tự click
+        if (BoardManager.Instance != null) BoardManager.Instance.SetActiveAllPieces(false);
+    }
+
+    // Nút "Return To Menu" sẽ gọi hàm này (thông qua UIManager)
+    public void OnClick_ReturnToMenu()
+    {
+        Time.timeScale = 1f;
+        SceneManager.LoadScene("MainMenu");
+    }
+
+
+    // --- CÁC HÀM ĐIỀU KHIỂN REPLAY MỚI ---
+    // (Đây là các hàm DÙNG CHUNG cho cả Replay (từ MainMenu) và Replay (tức thì))
+
+    // UIManager sẽ gọi hàm này cho nút "Next" (>)
+    public void ReplayNextMove()
+    {
+        if (!isReplayMode || replayMoveList == null || currentReplayIndex >= replayMoveList.Count - 1) return;
+
+        currentReplayIndex++;
+        string moveString = replayMoveList[currentReplayIndex];
+        Square start = new Square(moveString.Substring(0, 2));
+        Square end = new Square(moveString.Substring(2, 2));
+
+        if (game.TryGetLegalMove(start, end, out Movement move))
+        {
+            DoAIMove(move); // Dùng hàm có sẵn để vẽ quân cờ
+        }
+        else
+        {
+            Debug.LogError($"ReplayNextMove: Nước đi không hợp lệ? {moveString}. Thử nước đi tiếp theo.");
+            ReplayNextMove(); // Tự động thử nước đi tiếp theo
+        }
+    }
+
+    // UIManager sẽ gọi hàm này cho nút "Previous" (<)
+    public void ReplayPreviousMove()
+    {
+        if (!isReplayMode || currentReplayIndex < 0) return;
+
+        currentReplayIndex--;
+        ResetGameToHalfMoveIndex(currentReplayIndex);
+    }
+
+    // UIManager sẽ gọi hàm này cho nút "Tua đến đầu" (|<)
+    public void ReplayGoToStart()
+    {
+        if (!isReplayMode) return;
+        currentReplayIndex = -1;
+        ResetGameToHalfMoveIndex(currentReplayIndex);
+    }
+
+    // UIManager sẽ gọi hàm này cho nút "Tua đến cuối" (>)
+    public void ReplayGoToEnd()
+    {
+        if (!isReplayMode || replayMoveList == null) return;
+
+        // Reset về ban đầu
+        ResetGameToHalfMoveIndex(-1);
+
+        // Chạy tất cả các nước đi thật nhanh
+        for (int i = 0; i < replayMoveList.Count; i++)
+        {
+            string moveString = replayMoveList[i];
+            Square start = new Square(moveString.Substring(0, 2));
+            Square end = new Square(moveString.Substring(2, 2));
+            if (game.TryGetLegalMove(start, end, out Movement move))
+            {
+                // --- REFACTOR ---
+                // Chúng ta không thể gọi DoAIMove ở đây vì nó là 'async void'
+                // Chúng ta cần một hàm đồng bộ (synchronous) để thực hiện nước đi
+                // Tạm thời, chúng ta sẽ gọi TryExecuteMove (dù nó không di chuyển hình ảnh)
+                // Hoặc tốt hơn là gọi ResetGameToHalfMoveIndex cho mỗi bước
+                // *** Sửa lại logic: ***
+                game.TryExecuteMove(move); // Chỉ thực hiện logic
+                // --- END REFACTOR ---
+            }
+        }
+
+        // --- REFACTOR ---
+        // Sau khi chạy hết logic, gọi ResetGameToHalfMoveIndex một lần
+        // để "vẽ" lại bàn cờ ở trạng thái cuối cùng.
+        currentReplayIndex = replayMoveList.Count - 1;
+        ResetGameToHalfMoveIndex(currentReplayIndex);
+        // --- END REFACTOR ---
+    }
 }

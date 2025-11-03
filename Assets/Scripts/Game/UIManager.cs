@@ -319,23 +319,70 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
     }
 
     public void OnElectionButton(int choice) => GameManager.Instance.ElectPiece((ElectedPiece)choice);
-    public void ResetGameToFirstHalfMove() => GameManager.Instance.ResetGameToHalfMoveIndex(0);
-    public void ResetGameToPreviousHalfMove() =>
-        GameManager.Instance.ResetGameToHalfMoveIndex(Math.Max(0, GameManager.Instance.LatestHalfMoveIndex - 1));
+    public void ResetGameToFirstHalfMove()
+    {
+        // Nếu đang Replay, gọi hàm ReplayGoToStart
+        if (GameManager.Instance.isReplayMode)
+        {
+            GameManager.Instance.ReplayGoToStart();
+        }
+        else
+        {
+            // Nếu không, gọi hàm Undo/Reset bình thường
+            GameManager.Instance.ResetGameToHalfMoveIndex(0);
+        }
+    }
+    public void ResetGameToPreviousHalfMove()
+    {
+        // Nếu đang Replay, gọi hàm ReplayPreviousMove
+        if (GameManager.Instance.isReplayMode)
+        {
+            GameManager.Instance.ReplayPreviousMove();
+        }
+        else
+        {
+            // Nếu không, gọi hàm Undo (dùng logic UndoLastMove)
+            GameManager.Instance.UndoLastMove();
+        }
+    }
 
     public void ResetGameToNextHalfMove()
     {
-        int maxIndex = (GameManager.Instance.HalfMoveTimeline?.Count ?? 1) - 1;
-        GameManager.Instance.ResetGameToHalfMoveIndex(Math.Min(GameManager.Instance.LatestHalfMoveIndex + 1, maxIndex));
+        // Nếu đang Replay, gọi hàm ReplayNextMove
+        if (GameManager.Instance.isReplayMode)
+        {
+            GameManager.Instance.ReplayNextMove();
+        }
+        else
+        {
+            // Nếu không, gọi hàm Redo (tua tới)
+            int maxIndex = (GameManager.Instance.HalfMoveTimeline?.Count ?? 1) - 1;
+            GameManager.Instance.ResetGameToHalfMoveIndex(Math.Min(GameManager.Instance.LatestHalfMoveIndex + 1, maxIndex));
+        }
     }
 
     public void ResetGameToLastHalfMove()
     {
-        int maxIndex = (GameManager.Instance.HalfMoveTimeline?.Count ?? 1) - 1;
-        GameManager.Instance.ResetGameToHalfMoveIndex(maxIndex);
+        // Nếu đang Replay, gọi hàm ReplayGoToEnd
+        if (GameManager.Instance.isReplayMode)
+        {
+            GameManager.Instance.ReplayGoToEnd();
+        }
+        else
+        {
+            // Nếu không, gọi hàm Redo (tua tới)
+            int maxIndex = (GameManager.Instance.HalfMoveTimeline?.Count ?? 1) - 1;
+            GameManager.Instance.ResetGameToHalfMoveIndex(maxIndex);
+        }
     }
 
-    public void StartNewGame() => GameManager.Instance.RestartWithCurrentMode();
+    public void StartNewGame()
+    {
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.OnClick_NewGame();
+        }
+    }
 
     public void LoadGame()
     {
@@ -590,6 +637,22 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         else
         {
             BoardManager.Instance.SetActiveAllPieces(active);
+        }
+    }
+
+    public void OnClick_WatchReplayButton()
+    {
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.OnClick_WatchReplay();
+        }
+    }
+
+    public void OnClick_ReturnToMenuButton()
+    {
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.OnClick_ReturnToMenu();
         }
     }
 }
