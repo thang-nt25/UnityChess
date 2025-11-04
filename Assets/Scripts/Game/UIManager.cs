@@ -587,7 +587,11 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         Side resigningSide = GameManager.Instance.SideToMove;
         Side winner = resigningSide.Complement();
 
-        // Hiện kết quả đúng theo chế độ
+        GameManager.Instance.LastEndReason = GameManager.GameEndReason.None;
+        GameManager.Instance.LastWinner = winner;
+
+        GameManager.Instance.TriggerGameEnded();
+
         ShowWinner(winner);
 
         // Message phụ tùy theo người chơi
@@ -617,14 +621,20 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
             return;
         }
 
+        GameManager.Instance.LastEndReason = GameManager.GameEndReason.Draw;
+        GameManager.Instance.LastWinner = Side.None;
+
+        GameManager.Instance.TriggerGameEnded();
+
         SetResultImageActive(false, false, true);
+        if (gameStatusText) gameStatusText.text = "Game Drawn (Agreement)";
+
         Time.timeScale = 0f;
         GameManager.Instance.running = false;
-
-        if (gameStatusText) gameStatusText.text = "Game Drawn (Agreement)";
         SetBoardInteraction(false);
         if (resultPanel != null) resultPanel.SetActive(true);
     }
+
 
     private void SetBoardInteraction(bool active)
     {
@@ -654,5 +664,64 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         {
             GameManager.Instance.OnClick_ReturnToMenu();
         }
+    }
+
+    private void OnEnable()
+    {
+        GameManager.GameEndedEvent += OnGameEndedSaveHistory;
+    }
+
+    private void OnDisable()
+    {
+        GameManager.GameEndedEvent -= OnGameEndedSaveHistory;
+    }
+
+    private void OnGameEndedSaveHistory()
+    {
+        // Xác định kết quả từ GameManager
+        string result;
+        var gm = GameManager.Instance;
+
+        switch (gm.LastEndReason)
+        {
+            case GameManager.GameEndReason.Checkmate:
+                result = gm.LastWinner == Side.White ? "White wins (Checkmate)" : "Black wins (Checkmate)";
+                break;
+            case GameManager.GameEndReason.Draw:
+                result = "Draw";
+                break;
+            case GameManager.GameEndReason.Timeout:
+                result = gm.LastWinner == Side.White ? "White wins (Timeout)" : "Black wins (Timeout)";
+                break;
+            case GameManager.GameEndReason.None:
+                result = gm.LastWinner == Side.White ? "White wins (Resign)" : "Black wins (Resign)";
+                break;
+            default:
+                result = "Unknown Result";
+                break;
+        }
+
+        // --- Bổ sung hiển thị chế độ chơi ---
+        string modeDisplay = "";
+
+        switch (gm.CurrentGameMode)
+        {
+            case GameManager.GameMode.PlayerVsPlayer:
+                modeDisplay = "Player vs Player";
+                break;
+            case GameManager.GameMode.PlayerVsAIWhite:
+                modeDisplay = "Player vs AI (White)";
+                break;
+            case GameManager.GameMode.PlayerVsAIBlack:
+                modeDisplay = "Player vs AI (Black)";
+                break;
+            default:
+                modeDisplay = "Unknown Mode";
+                break;
+        }
+
+        HistoryManager.SaveGame(result, modeDisplay, gm.HalfMoveTimeline);
+
+        Debug.Log("✅ Game history saved successfully!");
     }
 }
