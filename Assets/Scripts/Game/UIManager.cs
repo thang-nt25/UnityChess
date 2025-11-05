@@ -4,22 +4,20 @@ using TMPro;
 using UnityChess;
 using UnityEngine;
 using UnityEngine.UI;
-using static GameManager;
+using static GameManager; 
 
 public class UIManager : MonoBehaviourSingleton<UIManager>
 {
-
     [Header("Traversal/Replay")]
     [SerializeField] private GameObject leftBarGameObject = null;
 
     [SerializeField] private GameObject promotionUI = null;
 
     [Header("Game Result Screen")]
-    [SerializeField] private GameObject resultPanel = null; // Panel chứa UI kết quả
-    [SerializeField] private Image winImage = null;          // YOU WIN
-    [SerializeField] private Image loseImage = null;         // YOU LOSE
+    [SerializeField] private GameObject resultPanel = null;
+    [SerializeField] private Image winImage = null;
+    [SerializeField] private Image loseImage = null;
     [SerializeField] private Image drawImage = null;
-    // 2 ảnh riêng cho PvP: White/Black thắng
     [SerializeField] private Image whiteWinImage = null;
     [SerializeField] private Image blackWinImage = null;
 
@@ -47,7 +45,6 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
     private Side GetPlayerSide()
     {
-        // xác định bên của người chơi khi có AI
         string mode = PlayerPrefs.GetString("GameMode", AIMode.HumanVsHuman.ToString());
 
         if (!string.IsNullOrEmpty(mode))
@@ -56,7 +53,6 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
             if (mode.Contains(nameof(AIMode.HumanVsAI_Black))) return Side.Black;
         }
 
-        // PvP hoặc không rõ -> trả về White nhưng KHÔNG dùng để so thắng/thua PvP
         return Side.White;
     }
 
@@ -82,7 +78,6 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
             backgroundColor.b - buttonColorDarkenAmount
         );
 
-        // Ẩn hết kết quả khi bắt đầu
         SetResultImageActive(false, false, false);
         if (resultPanel != null) resultPanel.SetActive(false);
         if (whiteWinImage) whiteWinImage.gameObject.SetActive(false);
@@ -90,17 +85,16 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
         if (promotionUI != null) promotionUI.SetActive(false);
         else Debug.LogWarning("[UIManager] Promotion UI reference is missing!");
+
         SetTraversalBarVisibility(GameManager.Instance.isReplayMode);
     }
 
-    // helper cũ: dùng cho YOU WIN / YOU LOSE / DRAW
     private void SetResultImageActive(bool winActive, bool loseActive, bool drawActive)
     {
         if (winImage) winImage.gameObject.SetActive(winActive);
         if (loseImage) loseImage.gameObject.SetActive(loseActive);
         if (drawImage) drawImage.gameObject.SetActive(drawActive);
 
-        // tắt ảnh PvP khi dùng helper này
         if (whiteWinImage) whiteWinImage.gameObject.SetActive(false);
         if (blackWinImage) blackWinImage.gameObject.SetActive(false);
 
@@ -112,29 +106,24 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         else if (drawActive && drawImage) drawImage.transform.SetAsLastSibling();
     }
 
-    // hiển thị đúng ảnh theo chế độ
     private void ShowWinner(Side winner)
     {
-        // Tắt hết trước
         SetResultImageActive(false, false, false);
         if (whiteWinImage) whiteWinImage.gameObject.SetActive(false);
         if (blackWinImage) blackWinImage.gameObject.SetActive(false);
 
-        // Đọc mode đúng tên enum
         var raw = PlayerPrefs.GetString("GameMode", AIMode.HumanVsHuman.ToString());
         System.Enum.TryParse<AIMode>(raw, out var mode);
 
         switch (mode)
         {
             case AIMode.HumanVsHuman:
-                // PvP: hiển thị White/Black thắng
                 if (winner == Side.White) { if (whiteWinImage) whiteWinImage.gameObject.SetActive(true); }
                 else { if (blackWinImage) blackWinImage.gameObject.SetActive(true); }
                 if (gameStatusText) gameStatusText.text = $"{winner} wins by checkmate";
                 break;
 
             case AIMode.HumanVsAI_Black:
-                // nghĩa là: Human vs AI (Black) -> BẠN CẦM TRẮNG
                 {
                     bool playerWin = (winner == Side.White);
                     SetResultImageActive(playerWin, !playerWin, false);
@@ -146,7 +135,6 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
             case AIMode.HumanVsAI_White:
             default:
-                // nghĩa là: Human vs AI (White) -> BẠN CẦM ĐEN
                 {
                     bool playerWin = (winner == Side.Black);
                     SetResultImageActive(playerWin, !playerWin, false);
@@ -210,7 +198,6 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         if (gm == null)
             return;
 
-        // Tắt hết kết quả trước
         SetResultImageActive(false, false, false);
         if (whiteWinImage) whiteWinImage.gameObject.SetActive(false);
         if (blackWinImage) blackWinImage.gameObject.SetActive(false);
@@ -218,12 +205,12 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         switch (gm.LastEndReason)
         {
             case GameManager.GameEndReason.Checkmate:
-                ShowWinner(gm.LastWinner); // Gọi phương thức hiển thị người thắng
+                ShowWinner(gm.LastWinner);
                 if (gameStatusText) gameStatusText.text = $"{gm.LastWinner} wins by checkmate";
                 break;
 
             case GameManager.GameEndReason.Stalemate:
-                SetResultImageActive(false, false, true); // Hòa
+                SetResultImageActive(false, false, true); 
                 if (gameStatusText) gameStatusText.text = "Draw (Stalemate)";
                 break;
 
@@ -276,7 +263,7 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
         SetBoardInteraction(false);
         if (resultPanel != null) resultPanel.SetActive(true);
-        Time.timeScale = 0f; // Dừng thời gian sau khi kết thúc ván đấu
+        Time.timeScale = 0f;
 
         GameManager.Instance.running = false;
     }
@@ -287,6 +274,14 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
     {
         UpdateGameStringInputField();
         Side sideToMove = GameManager.Instance.SideToMove;
+
+        if (GameManager.Instance.isReplayMode)
+        {
+            if (turnIndicatorText)
+                turnIndicatorText.text = sideToMove == Side.White ? "White's Turn" : "Black's Turn";
+
+            return; 
+        }
 
         if (whiteTurnIndicator) whiteTurnIndicator.enabled = sideToMove == Side.White;
         if (blackTurnIndicator) blackTurnIndicator.enabled = sideToMove == Side.Black;
@@ -311,6 +306,14 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
     private void OnGameResetToHalfMove()
     {
+        
+        if (GameManager.Instance.isReplayMode)
+        {
+            UpdateGameStringInputField();
+            ValidateIndicators();
+            return; 
+        }
+
         UpdateGameStringInputField();
         if (GameManager.Instance.HalfMoveTimeline == null) return;
 
@@ -324,43 +327,38 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
     }
 
     public void OnElectionButton(int choice) => GameManager.Instance.ElectPiece((ElectedPiece)choice);
+
     public void ResetGameToFirstHalfMove()
     {
-        // Nếu đang Replay, gọi hàm ReplayGoToStart
         if (GameManager.Instance.isReplayMode)
         {
             GameManager.Instance.ReplayGoToStart();
         }
         else
         {
-            // Nếu không, gọi hàm Undo/Reset bình thường
             GameManager.Instance.ResetGameToHalfMoveIndex(0);
         }
     }
     public void ResetGameToPreviousHalfMove()
     {
-        // Nếu đang Replay, gọi hàm ReplayPreviousMove
         if (GameManager.Instance.isReplayMode)
         {
             GameManager.Instance.ReplayPreviousMove();
         }
         else
         {
-            // Nếu không, gọi hàm Undo (dùng logic UndoLastMove)
             GameManager.Instance.UndoLastMove();
         }
     }
 
     public void ResetGameToNextHalfMove()
     {
-        // Nếu đang Replay, gọi hàm ReplayNextMove
         if (GameManager.Instance.isReplayMode)
         {
             GameManager.Instance.ReplayNextMove();
         }
         else
         {
-            // Nếu không, gọi hàm Redo (tua tới)
             int maxIndex = (GameManager.Instance.HalfMoveTimeline?.Count ?? 1) - 1;
             GameManager.Instance.ResetGameToHalfMoveIndex(Math.Min(GameManager.Instance.LatestHalfMoveIndex + 1, maxIndex));
         }
@@ -368,14 +366,12 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
     public void ResetGameToLastHalfMove()
     {
-        // Nếu đang Replay, gọi hàm ReplayGoToEnd
         if (GameManager.Instance.isReplayMode)
         {
             GameManager.Instance.ReplayGoToEnd();
         }
         else
         {
-            // Nếu không, gọi hàm Redo (tua tới)
             int maxIndex = (GameManager.Instance.HalfMoveTimeline?.Count ?? 1) - 1;
             GameManager.Instance.ResetGameToHalfMoveIndex(maxIndex);
         }
@@ -431,6 +427,16 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
                     moveUITimeline.TryGetCurrent(out FullMoveUI latestFullMoveUI);
                     latestFullMoveUI.BlackMoveText.text = latestHalfMove.ToAlgebraicNotation();
                     latestFullMoveUI.BlackMoveButton.enabled = true;
+
+                    int blackMoveIndex = GameManager.Instance.HalfMoveTimeline.HeadIndex;
+                    latestFullMoveUI.BlackMoveButton.onClick.RemoveAllListeners();
+                    latestFullMoveUI.BlackMoveButton.onClick.AddListener(() => {
+                        GameManager.Instance.ResetGameToHalfMoveIndex(blackMoveIndex);
+
+                        if (GameManager.Instance.isReplayMode)
+                            GameManager.Instance.SetReplayIndex(blackMoveIndex);
+                    });
+
                     break;
                 }
             case Side.White:
@@ -453,6 +459,16 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
                     newFullMoveUI.WhiteMoveButton.enabled = true;
 
                     moveUITimeline.AddNext(newFullMoveUI);
+
+                    int whiteMoveIndex = GameManager.Instance.HalfMoveTimeline.HeadIndex;
+                    newFullMoveUI.WhiteMoveButton.onClick.RemoveAllListeners();
+                    newFullMoveUI.WhiteMoveButton.onClick.AddListener(() => {
+                        GameManager.Instance.ResetGameToHalfMoveIndex(whiteMoveIndex);
+
+                        if (GameManager.Instance.isReplayMode)
+                            GameManager.Instance.SetReplayIndex(whiteMoveIndex);
+                    });
+
                     break;
                 }
         }
@@ -579,7 +595,6 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
     public void OnResignButtonClicked()
     {
-        // chặn khi bất kỳ ảnh kết quả nào đang bật
         if ((winImage && winImage.gameObject.activeSelf) ||
             (loseImage && loseImage.gameObject.activeSelf) ||
             (drawImage && drawImage.gameObject.activeSelf) ||
@@ -592,14 +607,12 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         Side resigningSide = GameManager.Instance.SideToMove;
         Side winner = resigningSide.Complement();
 
-        GameManager.Instance.LastEndReason = GameManager.GameEndReason.None;
+        GameManager.Instance.LastEndReason = GameManager.GameEndReason.None; 
         GameManager.Instance.LastWinner = winner;
-
-        GameManager.Instance.TriggerGameEnded();
+        GameManager.Instance.TriggerGameEnded(); 
 
         ShowWinner(winner);
 
-        // Message phụ tùy theo người chơi
         Side playerSide = GetPlayerSide();
         bool playerWin = (winner == playerSide);
 
@@ -628,8 +641,7 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
         GameManager.Instance.LastEndReason = GameManager.GameEndReason.Draw;
         GameManager.Instance.LastWinner = Side.None;
-
-        GameManager.Instance.TriggerGameEnded();
+        GameManager.Instance.TriggerGameEnded(); 
 
         SetResultImageActive(false, false, true);
         if (gameStatusText) gameStatusText.text = "Game Drawn (Agreement)";
@@ -671,7 +683,6 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         }
     }
 
-
     public void SetTraversalBarVisibility(bool isVisible)
     {
         if (leftBarGameObject != null)
@@ -680,62 +691,4 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         }
     }
 
-    private void OnEnable()
-    {
-        GameManager.GameEndedEvent += OnGameEndedSaveHistory;
-    }
-
-    private void OnDisable()
-    {
-        GameManager.GameEndedEvent -= OnGameEndedSaveHistory;
-    }
-
-    private void OnGameEndedSaveHistory()
-    {
-        // Xác định kết quả từ GameManager
-        string result;
-        var gm = GameManager.Instance;
-
-        switch (gm.LastEndReason)
-        {
-            case GameManager.GameEndReason.Checkmate:
-                result = gm.LastWinner == Side.White ? "White wins (Checkmate)" : "Black wins (Checkmate)";
-                break;
-            case GameManager.GameEndReason.Draw:
-                result = "Draw";
-                break;
-            case GameManager.GameEndReason.Timeout:
-                result = gm.LastWinner == Side.White ? "White wins (Timeout)" : "Black wins (Timeout)";
-                break;
-            case GameManager.GameEndReason.None:
-                result = gm.LastWinner == Side.White ? "White wins (Resign)" : "Black wins (Resign)";
-                break;
-            default:
-                result = "Unknown Result";
-                break;
-        }
-
-        // --- Bổ sung hiển thị chế độ chơi ---
-        string modeDisplay = "";
-
-        switch (gm.CurrentGameMode)
-        {
-            case GameManager.GameMode.PlayerVsPlayer:
-                modeDisplay = "Player vs Player";
-                break;
-            case GameManager.GameMode.PlayerVsAIWhite:
-                modeDisplay = "Player vs AI (White)";
-                break;
-            case GameManager.GameMode.PlayerVsAIBlack:
-                modeDisplay = "Player vs AI (Black)";
-                break;
-            default:
-                modeDisplay = "Unknown Mode";
-                break;
-        }
-
-        HistoryManager.SaveGame(result, modeDisplay, gm.HalfMoveTimeline);
-
-        Debug.Log("✅ Game history saved successfully!");
-    }
 }
