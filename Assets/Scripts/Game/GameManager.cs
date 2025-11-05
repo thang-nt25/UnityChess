@@ -24,8 +24,8 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     public static event Action GameResetToHalfMoveEvent;
     public static event Action MoveExecutedEvent;
     public enum GameEndReason { None, Checkmate, Stalemate, Timeout, Draw }
-    public GameEndReason LastEndReason { get; private set; } = GameEndReason.None;
-    public Side LastWinner { get; private set; } = Side.None;
+    public GameEndReason LastEndReason { get; set; } = GameEndReason.None;
+    public Side LastWinner { get; set; } = Side.None;
 
     [SerializeField] private AudioSource sfxSource;
     [SerializeField] private AudioClip sfxMove;
@@ -56,6 +56,16 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         HumanVsAI_Black,
         AIVsAI
     }
+
+    public enum GameMode
+    {
+        PlayerVsPlayer,
+        PlayerVsAIWhite,
+        PlayerVsAIBlack
+    }
+
+    public GameMode CurrentGameMode { get; set; }
+
 
     [SerializeField] private AIMode aiMode = AIMode.HumanVsHuman;
 
@@ -329,7 +339,6 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
             _ => "Unknown"
         };
 
-        HistoryManager.SaveGame($"{winner} Wins", mode, game.HalfMoveTimeline);
 
         LastEndReason = GameEndReason.Timeout;
         LastWinner = winner;
@@ -378,6 +387,15 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     {
         lastWhiteAI = isWhiteAI;
         lastBlackAI = isBlackAI;
+
+        if (isWhiteAI && isBlackAI)
+            CurrentGameMode = GameMode.PlayerVsPlayer; // hoặc tạo thêm chế độ AI vs AI nếu bạn muốn
+        else if (isWhiteAI)
+            CurrentGameMode = GameMode.PlayerVsAIBlack;
+        else if (isBlackAI)
+            CurrentGameMode = GameMode.PlayerVsAIWhite;
+        else
+            CurrentGameMode = GameMode.PlayerVsPlayer;
 
         Side humanSide = GetHumanSide();
 
@@ -605,8 +623,6 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
             default: mode = "Unknown"; break;
         }
 
-        HistoryManager.SaveGame(gameResultForHistory, mode, game.HalfMoveTimeline);
-        Debug.Log($"Game history saved: {gameResultForHistory}, Mode: {mode}");
         UIManager.Instance?.OnGameEnded();
     }
 
@@ -1015,4 +1031,11 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         ResetGameToHalfMoveIndex(currentReplayIndex);
         // --- END REFACTOR ---
     }
+
+    public void TriggerGameEnded()
+    {
+        GameEndedEvent?.Invoke();
+    }
+
+
 }
