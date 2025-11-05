@@ -5319,7 +5319,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f0167f509041e3640abd71ed897ce921, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HistoryPanel
-  historyEntryPrefab: {fileID: 4480673894857263005, guid: 1b3fd6949f4abb74caa42d674f15e9de,
+  historyEntryPrefab: {fileID: 5005340441690572936, guid: 1b3fd6949f4abb74caa42d674f15e9de,
     type: 3}
   contentContainer: {fileID: 221618998}
 --- !u!1 &975307459

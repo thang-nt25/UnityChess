@@ -30,6 +30,8 @@ public class VisualPiece : MonoBehaviour
 
     public void OnMouseDown()
     {
+        if (BoardManager.Instance != null && !BoardManager.Instance.IsUserInputEnabled)
+            return;
         Debug.Log($"[VisualPiece] OnMouseDown triggered. Enabled: {enabled}");
         if (enabled)
         {
@@ -74,6 +76,8 @@ public class VisualPiece : MonoBehaviour
 
     private void OnMouseDrag()
     {
+        if (BoardManager.Instance != null && !BoardManager.Instance.IsUserInputEnabled)
+            return;
         if (enabled)
         {
             Vector3 nextPiecePositionSS = new Vector3(Input.mousePosition.x, Input.mousePosition.y, piecePositionSS.z);
@@ -83,6 +87,8 @@ public class VisualPiece : MonoBehaviour
 
     public void OnMouseUp()
     {
+        if (BoardManager.Instance != null && !BoardManager.Instance.IsUserInputEnabled)
+            return;
         if (enabled)
         {
             HighlightManager.Instance.ClearHighlights();

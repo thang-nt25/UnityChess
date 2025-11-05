@@ -329,6 +329,7 @@ GameObject:
   - component: {fileID: 6629925528526783319}
   - component: {fileID: 4661252351918795684}
   - component: {fileID: 4089047909867848742}
+  - component: {fileID: 7245102912536549609}
   m_Layer: 5
   m_Name: HistoryItemTemplate
   m_TagString: Untagged
@@ -442,6 +443,21 @@ MonoBehaviour:
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
+--- !u!114 &7245102912536549609
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5005340441690572936}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a6e81d6970ee0244fb406512cc34d85c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HistoryItemUI
+  resultText: {fileID: 5851075417051441982}
+  modeText: {fileID: 6811705738953368225}
+  dateText: {fileID: 582870938662343889}
 --- !u!1 &5370691157037620635
 GameObject:
   m_ObjectHideFlags: 0

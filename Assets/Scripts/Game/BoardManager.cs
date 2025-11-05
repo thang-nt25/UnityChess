@@ -13,6 +13,7 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager>
     private const float BoardPlaneSideHalfLength = BoardPlaneSideLength * 0.5f;
     private const float BoardHeight = 1.6f;
     private readonly System.Random rng = new System.Random();
+    public bool IsUserInputEnabled { get; private set; } = true;
 
     [Header("Captured Pieces UI")]
     public CapturedPiecesUI capturedPiecesUI;
@@ -169,9 +170,22 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager>
 
     public void SetActiveAllPieces(bool active)
     {
-        VisualPiece[] visualPiece = GetComponentsInChildren<VisualPiece>(true);
-        foreach (VisualPiece pieceBehaviour in visualPiece) pieceBehaviour.enabled = active;
+        VisualPiece[] allPieces = GetComponentsInChildren<VisualPiece>(true);
+        foreach (var vp in allPieces)
+        {
+            if (vp == null) continue;
+
+            Collider col = vp.GetComponent<Collider>();
+            if (col != null) col.enabled = active;
+
+            vp.enabled = active;
+        }
+
+        Debug.Log($"[BoardManager] Pieces active = {active}");
     }
+
+
+
 
     public void EnsureOnlyPiecesOfSideAreEnabled(Side side)
     {
@@ -260,5 +274,11 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager>
 
         Debug.LogError($"Could not find mapped SquareGO for physical position: {SquareToString(physicalSquare)} (Logical: {SquareToString(logicalPosition)})");
         return null;
+    }
+
+    public void SetUserInputEnabled(bool enabled)
+    {
+        IsUserInputEnabled = enabled;
+        Debug.Log($"[BoardManager] User input enabled = {enabled}");
     }
 }

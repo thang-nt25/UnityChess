@@ -43,6 +43,8 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     private float lastTickRealtime;
     public bool running { get; set; }
     public bool unlimited;
+    private bool isReplayingMove = false;
+
 
     private int WhiteAIDifficulty = 3;
     private int BlackAIDifficulty = 3;
@@ -73,6 +75,9 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     private bool isBlackAI;
     private bool lastWhiteAI;
     private bool lastBlackAI;
+    public bool IsReplayMode { get; set; } = false;
+
+
 
     public Game Game => game;
 
@@ -344,6 +349,8 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         LastWinner = winner;
         UIManager.Instance?.OnGameEnded();
         GameEndedEvent?.Invoke();
+        BoardManager.Instance?.SetUserInputEnabled(false);
+
     }
 
 
@@ -443,6 +450,8 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
                 if (!isReplayMode)
                     BoardManager.Instance.EnsureOnlyPiecesOfSideAreEnabled(SideToMove);
             }
+            BoardManager.Instance.SetUserInputEnabled(!(isWhiteAI || isBlackAI) || GetHumanSide() == SideToMove);
+
 
             bool aiTurnNow = (SideToMove == Side.White && isWhiteAI) || (SideToMove == Side.Black && isBlackAI);
 
@@ -584,6 +593,12 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         MoveExecutedEvent?.Invoke();
         _halfMoveIndicesForUndo.Push(game.HalfMoveTimeline.HeadIndex);
 
+        if (BoardManager.Instance != null)
+        {
+            bool aiTurn = (SideToMove == Side.White && isWhiteAI) || (SideToMove == Side.Black && isBlackAI);
+            BoardManager.Instance.SetUserInputEnabled(!aiTurn);
+        }
+
         return true;
     }
 
@@ -624,6 +639,8 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         }
 
         UIManager.Instance?.OnGameEnded();
+        BoardManager.Instance?.SetUserInputEnabled(false);
+
     }
 
 
@@ -705,6 +722,14 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
 
     private async void OnPieceMoved(Square movedPieceInitialSquare, Transform movedPieceTransform, Transform closestBoardSquareTransform, Piece promotionPiece = null)
     {
+        if (isReplayMode && !isReplayingMove)
+        {
+            Debug.Log("Replay mode: Không thể di chuyển quân cờ!");
+            movedPieceTransform.position = movedPieceTransform.parent.position;
+            return;
+        }
+
+
         Square endSquare = new Square(closestBoardSquareTransform.name);
 
         // --- REFACTOR ---
@@ -971,14 +996,17 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
 
         if (game.TryGetLegalMove(start, end, out Movement move))
         {
-            DoAIMove(move); // Dùng hàm có sẵn để vẽ quân cờ
+            isReplayingMove = true; // 🔹 Bắt đầu replay move
+            DoAIMove(move);
+            isReplayingMove = false; // 🔹 Kết thúc replay move
         }
         else
         {
             Debug.LogError($"ReplayNextMove: Nước đi không hợp lệ? {moveString}. Thử nước đi tiếp theo.");
-            ReplayNextMove(); // Tự động thử nước đi tiếp theo
+            ReplayNextMove();
         }
     }
+
 
     // UIManager sẽ gọi hàm này cho nút "Previous" (<)
     public void ReplayPreviousMove()
