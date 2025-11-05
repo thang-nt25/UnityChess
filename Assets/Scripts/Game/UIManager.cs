@@ -8,6 +8,10 @@ using static GameManager;
 
 public class UIManager : MonoBehaviourSingleton<UIManager>
 {
+
+    [Header("Traversal/Replay")]
+    [SerializeField] private GameObject leftBarGameObject = null;
+
     [SerializeField] private GameObject promotionUI = null;
 
     [Header("Game Result Screen")]
@@ -86,6 +90,7 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
         if (promotionUI != null) promotionUI.SetActive(false);
         else Debug.LogWarning("[UIManager] Promotion UI reference is missing!");
+        SetTraversalBarVisibility(GameManager.Instance.isReplayMode);
     }
 
     // helper cũ: dùng cho YOU WIN / YOU LOSE / DRAW
@@ -653,6 +658,14 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         if (GameManager.Instance != null)
         {
             GameManager.Instance.OnClick_ReturnToMenu();
+        }
+    }
+
+    public void SetTraversalBarVisibility(bool isVisible)
+    {
+        if (leftBarGameObject != null)
+        {
+            leftBarGameObject.SetActive(isVisible);
         }
     }
 }

@@ -894,6 +894,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         // --- END REFACTOR ---
 
         RestartWithLastMode();
+        if (UIManager.Instance != null) UIManager.Instance.SetTraversalBarVisibility(false);
     }
 
     // Gán nút "Watch Replay" (Xem Replay) vào hàm này
@@ -926,6 +927,8 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
 
         // 5. Tắt khả năng người chơi tự click
         if (BoardManager.Instance != null) BoardManager.Instance.SetActiveAllPieces(false);
+
+        if (UIManager.Instance != null) UIManager.Instance.SetTraversalBarVisibility(true);
     }
 
     // Nút "Return To Menu" sẽ gọi hàm này (thông qua UIManager)
@@ -933,6 +936,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     {
         Time.timeScale = 1f;
         SceneManager.LoadScene("MainMenu");
+        if (UIManager.Instance != null) UIManager.Instance.SetTraversalBarVisibility(false);
     }
 
 
