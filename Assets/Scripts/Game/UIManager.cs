@@ -632,7 +632,10 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
         GameManager.Instance.LastEndReason = GameManager.GameEndReason.None; 
         GameManager.Instance.LastWinner = winner;
-        GameManager.Instance.TriggerGameEnded(); 
+        GameManager.Instance.TriggerGameEnded();
+        string mode = PlayerPrefs.GetString("GameMode", "PlayerVsPlayer");
+        HistoryManager.SaveGame("Resign", mode, GameManager.Instance.HalfMoveTimeline);
+
 
         ShowWinner(winner);
 
@@ -664,7 +667,10 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
         GameManager.Instance.LastEndReason = GameManager.GameEndReason.Draw;
         GameManager.Instance.LastWinner = Side.None;
-        GameManager.Instance.TriggerGameEnded(); 
+        GameManager.Instance.TriggerGameEnded();
+
+        string mode = PlayerPrefs.GetString("GameMode", "PlayerVsPlayer");
+        HistoryManager.SaveGame("Draw", mode, GameManager.Instance.HalfMoveTimeline);
 
         SetResultImageActive(false, false, true);
         if (gameStatusText) gameStatusText.text = "Game Drawn (Agreement)";
