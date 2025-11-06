@@ -184,6 +184,19 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
 
             RestartWithCurrentMode();
         }
+
+        try
+        {
+            GameHistory history = HistoryManager.LoadHistory();
+            if (history != null && history.allGames.Count > 0)
+            {
+                Debug.Log($"[GameManager] Đã load {history.allGames.Count} ván trong lịch sử.");
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning("[GameManager] Không thể load lịch sử game: " + e.Message);
+        }
     }
 
     private void OnApplicationQuit()
@@ -618,6 +631,20 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         }
 
         Debug.Log($"Game ended: {gameResultForHistory}, Mode: {aiMode}");
+        try
+        {
+            if (game != null && game.HalfMoveTimeline != null)
+            {
+                mode = aiMode.ToString();
+                HistoryManager.SaveGame(gameResultForHistory, mode, game.HalfMoveTimeline);
+                Debug.Log("[GameManager] Đã lưu lịch sử ván đấu vào file JSON.");
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError("[GameManager] Lỗi khi lưu lịch sử: " + e.Message);
+        }
+
         UIManager.Instance?.OnGameEnded();
         BoardManager.Instance?.SetUserInputEnabled(false);
     }
