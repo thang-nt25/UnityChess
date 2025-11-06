@@ -36,6 +36,12 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
     [SerializeField] private Text gameStatusText = null;
     [SerializeField] private TMP_Text pauseButtonText = null;
 
+    [Header("Game Control Buttons")]
+    [SerializeField] private Button pauseButton = null;
+    [SerializeField] private Button resignButton = null;
+    [SerializeField] private Button drawButton = null;
+
+
     [Header("AI Difficulty")]
     [SerializeField] private TMP_Text aiDifficultyText = null;
 
@@ -87,6 +93,7 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         else Debug.LogWarning("[UIManager] Promotion UI reference is missing!");
 
         SetTraversalBarVisibility(GameManager.Instance.isReplayMode);
+        UpdateControlButtonsVisibility();
     }
 
     private void SetResultImageActive(bool winActive, bool loseActive, bool drawActive)
@@ -165,11 +172,11 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         }
 
         moveUITimeline.Clear();
+
         SetResultImageActive(false, false, false);
         if (resultPanel != null) resultPanel.SetActive(false);
         if (whiteWinImage) whiteWinImage.gameObject.SetActive(false);
         if (blackWinImage) blackWinImage.gameObject.SetActive(false);
-
         if (gameStatusText) gameStatusText.text = "";
 
         if (aiDifficultyText != null)
@@ -189,8 +196,12 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         }
 
         SetBoardInteraction(true);
+
+        UpdateControlButtonsVisibility();
+
         GameManager.Instance.running = true;
     }
+
 
     public void OnGameEnded()
     {
@@ -275,34 +286,34 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         UpdateGameStringInputField();
         Side sideToMove = GameManager.Instance.SideToMove;
 
-        if (GameManager.Instance.isReplayMode)
-        {
-            if (turnIndicatorText)
-                turnIndicatorText.text = sideToMove == Side.White ? "White's Turn" : "Black's Turn";
-
-            return; 
-        }
+        if (turnIndicatorText)
+            turnIndicatorText.text = sideToMove == Side.White ? "White's Turn" : "Black's Turn";
 
         if (whiteTurnIndicator) whiteTurnIndicator.enabled = sideToMove == Side.White;
         if (blackTurnIndicator) blackTurnIndicator.enabled = sideToMove == Side.Black;
-
-        if (turnIndicatorText)
-            turnIndicatorText.text = sideToMove == Side.White ? "White's Turn" : "Black's Turn";
 
         if (GameManager.Instance.HalfMoveTimeline == null ||
             !GameManager.Instance.HalfMoveTimeline.TryGetCurrent(out HalfMove lastMove))
             return;
 
-        AddMoveToHistory(lastMove, sideToMove.Complement());
+        if (!GameManager.Instance.isReplayMode)
+        {
+            AddMoveToHistory(lastMove, sideToMove.Complement());
+        }
 
         if (gameStatusText)
         {
-            if (lastMove.CausedCheckmate) gameStatusText.text = $"{lastMove.Piece.Owner.Complement()} is checkmated! ({lastMove.Piece.Owner} wins)";
-            else if (lastMove.CausedStalemate) gameStatusText.text = "Draw (Stalemate)";
-            else if (lastMove.CausedCheck) gameStatusText.text = "Check!";
-            else gameStatusText.text = "";
+            if (lastMove.CausedCheckmate)
+                gameStatusText.text = $"{lastMove.Piece.Owner.Complement()} is checkmated! ({lastMove.Piece.Owner} wins)";
+            else if (lastMove.CausedStalemate)
+                gameStatusText.text = "Draw (Stalemate)";
+            else if (lastMove.CausedCheck)
+                gameStatusText.text = "Check!";
+            else
+                gameStatusText.text = "";
         }
     }
+
 
     private void OnGameResetToHalfMove()
     {
@@ -672,6 +683,7 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         if (GameManager.Instance != null)
         {
             GameManager.Instance.OnClick_WatchReplay();
+            UpdateControlButtonsVisibility();
         }
     }
 
@@ -690,5 +702,15 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
             leftBarGameObject.SetActive(isVisible);
         }
     }
+
+    private void UpdateControlButtonsVisibility()
+    {
+        bool isReplay = GameManager.Instance != null && GameManager.Instance.isReplayMode;
+
+        if (pauseButton) pauseButton.gameObject.SetActive(!isReplay);
+        if (resignButton) resignButton.gameObject.SetActive(!isReplay);
+        if (drawButton) drawButton.gameObject.SetActive(!isReplay);
+    }
+
 
 }
