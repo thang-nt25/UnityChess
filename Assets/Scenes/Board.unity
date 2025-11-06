@@ -11342,6 +11342,9 @@ MonoBehaviour:
   turnIndicatorText: {fileID: 1977195913}
   gameStatusText: {fileID: 214201878}
   pauseButtonText: {fileID: 998238019}
+  pauseButton: {fileID: 1677266636}
+  resignButton: {fileID: 540205798}
+  drawButton: {fileID: 1012695110}
   aiDifficultyText: {fileID: 0}
 --- !u!222 &1342442566114413360
 CanvasRenderer:
