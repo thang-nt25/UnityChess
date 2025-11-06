@@ -16,17 +16,17 @@ namespace UnityChess.Engine
     {
         private ChessGame game;  // Game từ ChessDotNet
         private bool isReady = false;
-        private const int maxDepth = 7; // Tăng depth lên 7 với các tối ưu hóa
+        private const int maxDepth = 4; // Tăng depth lên 7 với các tối ưu hóa
 
         // Transposition table for caching
         private Dictionary<string, TranspositionEntry> transpositionTable = new Dictionary<string, TranspositionEntry>();
-
+        private Dictionary<(Player, string), bool> defenseCache = new();
         // Killer moves heuristic
         private Move[][] killerMoves = new Move[50][]; // Max 50 plies
 
         // History heuristic
         private int[,,,] historyTable = new int[2, 8, 8, 8]; // [color, fromRow, fromCol, toCol]
-
+        private static readonly System.Random rng = new System.Random();
         // Simple opening book
         private Dictionary<string, string[]> openingBook = new Dictionary<string, string[]>()
         {
@@ -232,7 +232,7 @@ namespace UnityChess.Engine
             {
                 string[] possibleMoves = openingBook[positionKey];
                 // Randomly select one of the book moves for variety
-                string moveStr = possibleMoves[UnityEngine.Random.Range(0, possibleMoves.Length)];
+                string moveStr = possibleMoves[rng.Next(possibleMoves.Length)];
                 return ParseAlgebraicMove(moveStr, game);
             }
             return null;
@@ -262,28 +262,42 @@ namespace UnityChess.Engine
             var moves = game.GetValidMoves(game.WhoseTurn);
             if (moves.Count == 0) return null;
 
-            // Move ordering: captures first, then killer moves, then history
             var orderedMoves = OrderMoves(moves, game, 0);
-
             Move bestMove = null;
+
             bool isMaximizing = game.WhoseTurn == Player.White;
             int bestValue = isMaximizing ? int.MinValue : int.MaxValue;
 
+            int alpha = int.MinValue;
+            int beta = int.MaxValue;
+            int ply = 0;
+
             foreach (var move in orderedMoves)
             {
-                string fenBefore = game.GetFen();
-                ChessGame gameCopy = new ChessGame(fenBefore);
+                // Clone game để không làm thay đổi bản gốc
+                ChessGame gameCopy = new ChessGame(game.GetFen()); // tạo bản sao từ FEN hiện tại
                 gameCopy.MakeMove(move, true);
-                int value = Minimax(gameCopy, depth - 1, !isMaximizing, int.MinValue, int.MaxValue, 1, true);
 
+                // Evaluate recursively
+                int value = Minimax(gameCopy, depth - 1, !isMaximizing, alpha, beta, ply + 1, true);
+
+                // Track best move
                 if ((isMaximizing && value > bestValue) || (!isMaximizing && value < bestValue))
                 {
                     bestValue = value;
                     bestMove = move;
                 }
+
+                // Alpha-beta pruning
+                if (isMaximizing)
+                    alpha = Math.Max(alpha, value);
+                else
+                    beta = Math.Min(beta, value);
+
+                if (beta <= alpha)
+                    break; // pruning
             }
 
-            // Fallback: if no move was selected, just pick the first valid move
             if (bestMove == null && orderedMoves.Count > 0)
             {
                 Debug.LogWarning("[ChessDotNet] No best move found, using first available move");
@@ -292,6 +306,7 @@ namespace UnityChess.Engine
 
             return bestMove;
         }
+
 
         private List<Move> OrderMoves(System.Collections.ObjectModel.ReadOnlyCollection<Move> moves, ChessGame game, int ply)
         {
@@ -336,88 +351,44 @@ namespace UnityChess.Engine
             try
             {
                 int score = 0;
-
-                // Prioritize captures
                 var board = game.GetBoard();
-                int targetRow = 8 - move.NewPosition.Rank;
-                int targetCol = (int)move.NewPosition.File;
+
+                int targetRow = 8 - move.NewPosition.Rank; // 0..7
+                int targetCol = (int)move.NewPosition.File; // 0..7, không trừ 1
+
+                if (targetRow < 0 || targetRow > 7 || targetCol < 0 || targetCol > 7)
+                    return 0;
+
                 ChessPiece capturedPiece = board[targetRow][targetCol];
+
+                int attackerRow = 8 - move.OriginalPosition.Rank;
+                int attackerCol = (int)move.OriginalPosition.File;
+
+                if (attackerRow < 0 || attackerRow > 7 || attackerCol < 0 || attackerCol > 7)
+                    return 0;
+
+                ChessPiece attackerPiece = board[attackerRow][attackerCol];
 
                 if (capturedPiece != null)
                 {
-                    int victimValue = char.ToLower(capturedPiece.GetFenCharacter()) switch
-                    {
-                        'p' => 100,
-                        'n' => 320,
-                        'b' => 330,
-                        'r' => 500,
-                        'q' => 900,
-                        'k' => 20000,
-                        _ => 0
-                    };
+                    int victimValue = GetPieceValue(capturedPiece);
+                    int attackerValue = GetPieceValue(attackerPiece);
 
-                    // Get attacker piece from original position
-                    int attackerRow = 8 - move.OriginalPosition.Rank;
-                    int attackerCol = (int)move.OriginalPosition.File;
-                    ChessPiece attackerPiece = board[attackerRow][attackerCol];
-
-                    int attackerValue = attackerPiece != null ? char.ToLower(attackerPiece.GetFenCharacter()) switch
-                    {
-                        'p' => 100,
-                        'n' => 320,
-                        'b' => 330,
-                        'r' => 500,
-                        'q' => 900,
-                        'k' => 20000,
-                        _ => 0
-                    } : 0;
-
-                    // MVV-LVA with safety check
                     score = victimValue * 10 - attackerValue / 10;
 
-                    // Penalty if capturing with more valuable piece and target is defended
-                    if (attackerValue > victimValue)
+                    if (attackerValue > victimValue && IsSquareDefended(game, move.NewPosition, game.WhoseTurn == Player.White ? Player.Black : Player.White))
                     {
-                        // Check if target square is defended
-                        if (IsSquareDefended(game, move.NewPosition, game.WhoseTurn == Player.White ? Player.Black : Player.White))
-                        {
-                            // Dangerous capture - penalize heavily
-                            score -= (attackerValue - victimValue) * 2;
-                        }
+                        score -= (attackerValue - victimValue) * 2;
                     }
                 }
                 else
                 {
-                    // For quiet moves, check if we're moving to a defended square
-                    int attackerRow = 8 - move.OriginalPosition.Rank;
-                    int attackerCol = (int)move.OriginalPosition.File;
-                    ChessPiece movingPiece = board[attackerRow][attackerCol];
-
-                    if (movingPiece != null)
+                    if (attackerPiece != null && IsSquareDefended(game, move.NewPosition, game.WhoseTurn == Player.White ? Player.Black : Player.White))
                     {
-                        // Penalty if moving to an attacked square
-                        if (IsSquareDefended(game, move.NewPosition, game.WhoseTurn == Player.White ? Player.Black : Player.White))
-                        {
-                            int pieceValue = char.ToLower(movingPiece.GetFenCharacter()) switch
-                            {
-                                'p' => 100,
-                                'n' => 320,
-                                'b' => 330,
-                                'r' => 500,
-                                'q' => 900,
-                                _ => 0
-                            };
-
-                            // Check if target square is also defended by us
-                            if (!IsSquareDefended(game, move.NewPosition, game.WhoseTurn))
-                            {
-                                score -= pieceValue; // Heavy penalty for hanging piece
-                            }
-                        }
+                        score -= GetPieceValue(attackerPiece) / 2; // giảm penalty
                     }
                 }
 
-                // Prioritize promotions
                 if (move.Promotion.HasValue)
                     score += 8000;
 
@@ -430,25 +401,32 @@ namespace UnityChess.Engine
             }
         }
 
+        private int GetPieceValue(ChessPiece piece)
+        {
+            if (piece == null) return 0;
+            return char.ToLower(piece.GetFenCharacter()) switch
+            {
+                'p' => 100,
+                'n' => 320,
+                'b' => 330,
+                'r' => 500,
+                'q' => 900,
+                'k' => 20000,
+                _ => 0
+            };
+        }
+
+
         private bool IsSquareDefended(ChessGame game, Position pos, Player defender)
         {
-            try
-            {
-                // Check if any of defender's pieces can attack this square
-                var moves = game.GetValidMoves(defender);
-                foreach (var move in moves)
-                {
-                    if (move.NewPosition.File == pos.File && move.NewPosition.Rank == pos.Rank)
-                    {
-                        return true;
-                    }
-                }
-                return false;
-            }
-            catch
-            {
-                return false; // Safe default
-            }
+            string key = $"{defender}-{pos}";
+            if (defenseCache.TryGetValue((defender, key), out bool cached))
+                return cached;
+
+            bool defended = game.GetValidMoves(defender)
+                .Any(m => m.NewPosition.File == pos.File && m.NewPosition.Rank == pos.Rank);
+            defenseCache[(defender, key)] = defended;
+            return defended;
         }
 
         private int Minimax(ChessGame game, int depth, bool isMaximizing, int alpha, int beta, int ply, bool allowNull)
