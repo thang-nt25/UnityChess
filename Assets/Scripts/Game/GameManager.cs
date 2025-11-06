@@ -40,6 +40,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     public bool running { get; set; }
     public bool unlimited;
     private bool isReplayingMove = false;
+    public int CurrentReplayIndex => currentReplayIndex;
 
 
     private int WhiteAIDifficulty = 3;
@@ -921,6 +922,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
 
         if (UIManager.Instance != null)
         {
+            UIManager.Instance.SetGameStatusText(""); 
             UIManager.Instance.CloseResultScreen();
         }
 

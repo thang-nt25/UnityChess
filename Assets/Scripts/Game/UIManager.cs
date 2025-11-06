@@ -303,6 +303,12 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
         if (gameStatusText)
         {
+            if (GameManager.Instance.isReplayMode && GameManager.Instance.CurrentReplayIndex < 0)
+            {
+                gameStatusText.text = ""; 
+                return;
+            }
+
             if (lastMove.CausedCheckmate)
                 gameStatusText.text = $"{lastMove.Piece.Owner.Complement()} is checkmated! ({lastMove.Piece.Owner} wins)";
             else if (lastMove.CausedStalemate)
@@ -547,6 +553,12 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
         if (gameStatusText)
         {
+            if (GameManager.Instance.isReplayMode)
+            {
+                gameStatusText.text = ""; 
+                return;
+            }
+
             if (GameManager.Instance.HalfMoveTimeline != null &&
                 GameManager.Instance.HalfMoveTimeline.TryGetCurrent(out HalfMove latestHalfMove))
             {
@@ -710,6 +722,12 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         if (pauseButton) pauseButton.gameObject.SetActive(!isReplay);
         if (resignButton) resignButton.gameObject.SetActive(!isReplay);
         if (drawButton) drawButton.gameObject.SetActive(!isReplay);
+    }
+
+    public void SetGameStatusText(string text)
+    {
+        if (gameStatusText != null)
+            gameStatusText.text = text;
     }
 
 

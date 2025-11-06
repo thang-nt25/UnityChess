@@ -75,6 +75,10 @@ public class HistoryPanel : MonoBehaviour
         // SceneManager.LoadScene("Board"); 
 
         // (Hiện tại chúng ta sẽ chỉ in ra, bước tiếp theo sẽ làm Replay)
+        UIManager.Instance?.SetGameStatusText("");
+
+        Debug.Log($"Chuẩn bị Replay trận đấu với {movesToReplay.Count} nước đi!");
+
         ReplayManager.movesToReplay = new List<string>(movesToReplay);
         UnityEngine.SceneManagement.SceneManager.LoadScene("Board");    
     }
