@@ -13,14 +13,14 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
 
     public bool isReplayMode { get; private set; } = false;
     private List<string> replayMoveList;
-    public int currentReplayIndex { get; private set; } = -1; 
+    public int currentReplayIndex { get; private set; } = -1;
 
     public static event Action NewGameStartedEvent;
     public static event Action GameEndedEvent;
     public static event Action GameResetToHalfMoveEvent;
     public static event Action MoveExecutedEvent;
     public enum GameEndReason { None, Checkmate, Stalemate, Timeout, Draw }
-    public GameEndReason LastEndReason { get; set; } = GameEndReason.None; 
+    public GameEndReason LastEndReason { get; set; } = GameEndReason.None;
     public Side LastWinner { get; set; } = Side.None;
 
     [SerializeField] private AudioSource sfxSource;
@@ -71,7 +71,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     private bool isBlackAI;
     private bool lastWhiteAI;
     private bool lastBlackAI;
-    public bool IsReplayMode { get; set; } = false; 
+    public bool IsReplayMode { get; set; } = false;
 
 
 
@@ -81,7 +81,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     {
         get
         {
-            if (game == null) return null; 
+            if (game == null) return null;
             game.BoardTimeline.TryGetCurrent(out Board currentBoard);
             return currentBoard;
         }
@@ -91,7 +91,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     {
         get
         {
-            if (game == null) return Side.None; 
+            if (game == null) return Side.None;
             game.ConditionsTimeline.TryGetCurrent(out GameConditions currentConditions);
             return currentConditions.SideToMove;
         }
@@ -133,7 +133,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         get
         {
             currentPiecesBacking.Clear();
-            if (game == null) return currentPiecesBacking; 
+            if (game == null) return currentPiecesBacking;
             for (int file = 1; file <= 8; file++)
             {
                 for (int rank = 1; rank <= 8; rank++)
@@ -430,7 +430,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         {
             if (uciEngine == null)
             {
-                uciEngine = new StockfishUCIEngine();
+                uciEngine = new ChessDotNetEngine();
                 uciEngine.Start();
             }
 
@@ -731,7 +731,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         if (isReplayMode && !isReplayingMove)
         {
             Debug.Log("Replay mode: Không thể di chuyển quân cờ!");
-            if (movedPieceTransform != null) 
+            if (movedPieceTransform != null)
                 movedPieceTransform.position = movedPieceTransform.parent.position;
             return;
         }
@@ -740,7 +740,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
 
         if (game == null || !game.TryGetLegalMove(movedPieceInitialSquare, endSquare, out Movement move))
         {
-            if (movedPieceTransform != null) 
+            if (movedPieceTransform != null)
                 movedPieceTransform.position = movedPieceTransform.parent.position;
             return;
         }
@@ -949,11 +949,11 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
 
         if (UIManager.Instance != null)
         {
-            UIManager.Instance.SetGameStatusText(""); 
+            UIManager.Instance.SetGameStatusText("");
             UIManager.Instance.CloseResultScreen();
         }
 
-        SetReplayIndex(-1); 
+        SetReplayIndex(-1);
 
         if (BoardManager.Instance != null) BoardManager.Instance.SetActiveAllPieces(false);
 
@@ -997,7 +997,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         if (currentReplayIndex == 0)
         {
             currentReplayIndex = -1;
-            ResetGameToHalfMoveIndex(-1); 
+            ResetGameToHalfMoveIndex(-1);
         }
         else if (currentReplayIndex > 0)
         {
@@ -1028,7 +1028,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
             Square end = new Square(moveString.Substring(2, 2));
             if (game.TryGetLegalMove(start, end, out Movement move))
             {
-                game.TryExecuteMove(move); 
+                game.TryExecuteMove(move);
             }
         }
 
