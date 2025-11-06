@@ -103,10 +103,10 @@ TextureImporter:
       name: White_bishop 1_0
       rect:
         serializedVersion: 2
-        x: 13
-        y: 20
-        width: 69
-        height: 161
+        x: 58
+        y: 16
+        width: 84
+        height: 166
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
