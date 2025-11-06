@@ -103,10 +103,10 @@ TextureImporter:
       name: White_rook 1_0
       rect:
         serializedVersion: 2
-        x: 0
-        y: 1
-        width: 88
-        height: 140
+        x: 62
+        y: 40
+        width: 77
+        height: 115
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}

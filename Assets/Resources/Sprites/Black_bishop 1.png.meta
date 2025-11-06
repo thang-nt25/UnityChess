@@ -103,10 +103,10 @@ TextureImporter:
       name: Black_bishop 1_0
       rect:
         serializedVersion: 2
-        x: 0
-        y: 8
-        width: 86
-        height: 175
+        x: 59
+        y: 24
+        width: 82
+        height: 151
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}

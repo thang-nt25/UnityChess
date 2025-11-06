@@ -5,9 +5,6 @@ TextureImporter:
   - first:
       213: 4397393532686069487
     second: Black_rook 1_0
-  - first:
-      213: -9094054119825526673
-    second: Black_rook 1_1
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -106,10 +103,10 @@ TextureImporter:
       name: Black_rook 1_0
       rect:
         serializedVersion: 2
-        x: 0
-        y: 0
-        width: 90
-        height: 18
+        x: 54
+        y: 27
+        width: 93
+        height: 145
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -120,28 +117,6 @@ TextureImporter:
       bones: []
       spriteID: fee6a5d9e1ea60d30800000000000000
       internalID: 4397393532686069487
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Black_rook 1_1
-      rect:
-        serializedVersion: 2
-        x: 10
-        y: 17
-        width: 70
-        height: 116
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: f603f9bd5fd6bc180800000000000000
-      internalID: -9094054119825526673
       vertices: []
       indices: 
       edges: []
@@ -161,7 +136,6 @@ TextureImporter:
       entries: []
     nameFileIdTable:
       Black_rook 1_0: 4397393532686069487
-      Black_rook 1_1: -9094054119825526673
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

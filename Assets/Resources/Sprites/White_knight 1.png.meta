@@ -103,10 +103,10 @@ TextureImporter:
       name: White_knight 1_0
       rect:
         serializedVersion: 2
-        x: 15
-        y: 14
-        width: 90
-        height: 135
+        x: 55
+        y: 21
+        width: 86
+        height: 152
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
