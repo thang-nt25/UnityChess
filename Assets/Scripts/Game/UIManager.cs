@@ -4,7 +4,7 @@ using TMPro;
 using UnityChess;
 using UnityEngine;
 using UnityEngine.UI;
-using static GameManager; 
+using static GameManager;
 
 public class UIManager : MonoBehaviourSingleton<UIManager>
 {
@@ -76,7 +76,14 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         GameManager.GameResetToHalfMoveEvent += OnGameResetToHalfMove;
 
         moveUITimeline = new Timeline<FullMoveUI>();
-        foreach (Text t in boardInfoTexts) t.color = textColor;
+
+        if (boardInfoTexts != null)
+        {
+            foreach (Text t in boardInfoTexts)
+            {
+                if (t != null) t.color = textColor;
+            }
+        }
 
         buttonColor = new Color(
             backgroundColor.r - buttonColorDarkenAmount,
@@ -221,7 +228,7 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
                 break;
 
             case GameManager.GameEndReason.Stalemate:
-                SetResultImageActive(false, false, true); 
+                SetResultImageActive(false, false, true);
                 if (gameStatusText) gameStatusText.text = "Draw (Stalemate)";
                 break;
 
@@ -305,7 +312,7 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         {
             if (GameManager.Instance.isReplayMode && GameManager.Instance.CurrentReplayIndex < 0)
             {
-                gameStatusText.text = ""; 
+                gameStatusText.text = "";
                 return;
             }
 
@@ -323,12 +330,12 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
     private void OnGameResetToHalfMove()
     {
-        
+
         if (GameManager.Instance.isReplayMode)
         {
             UpdateGameStringInputField();
             ValidateIndicators();
-            return; 
+            return;
         }
 
         UpdateGameStringInputField();
@@ -447,7 +454,8 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
                     int blackMoveIndex = GameManager.Instance.HalfMoveTimeline.HeadIndex;
                     latestFullMoveUI.BlackMoveButton.onClick.RemoveAllListeners();
-                    latestFullMoveUI.BlackMoveButton.onClick.AddListener(() => {
+                    latestFullMoveUI.BlackMoveButton.onClick.AddListener(() =>
+                    {
                         GameManager.Instance.ResetGameToHalfMoveIndex(blackMoveIndex);
 
                         if (GameManager.Instance.isReplayMode)
@@ -479,7 +487,8 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
                     int whiteMoveIndex = GameManager.Instance.HalfMoveTimeline.HeadIndex;
                     newFullMoveUI.WhiteMoveButton.onClick.RemoveAllListeners();
-                    newFullMoveUI.WhiteMoveButton.onClick.AddListener(() => {
+                    newFullMoveUI.WhiteMoveButton.onClick.AddListener(() =>
+                    {
                         GameManager.Instance.ResetGameToHalfMoveIndex(whiteMoveIndex);
 
                         if (GameManager.Instance.isReplayMode)
@@ -555,7 +564,7 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         {
             if (GameManager.Instance.isReplayMode)
             {
-                gameStatusText.text = ""; 
+                gameStatusText.text = "";
                 return;
             }
 
@@ -630,7 +639,7 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         Side resigningSide = GameManager.Instance.SideToMove;
         Side winner = resigningSide.Complement();
 
-        GameManager.Instance.LastEndReason = GameManager.GameEndReason.None; 
+        GameManager.Instance.LastEndReason = GameManager.GameEndReason.None;
         GameManager.Instance.LastWinner = winner;
         GameManager.Instance.TriggerGameEnded();
         string mode = PlayerPrefs.GetString("GameMode", "PlayerVsPlayer");
