@@ -206,6 +206,8 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
         UpdateControlButtonsVisibility();
 
+        EnableAllControlButtons();
+
         GameManager.Instance.running = true;
     }
 
@@ -450,17 +452,9 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
                     moveUITimeline.TryGetCurrent(out FullMoveUI latestFullMoveUI);
                     latestFullMoveUI.BlackMoveText.text = latestHalfMove.ToAlgebraicNotation();
-                    latestFullMoveUI.BlackMoveButton.enabled = true;
+                    latestFullMoveUI.BlackMoveButton.interactable = false;
 
                     int blackMoveIndex = GameManager.Instance.HalfMoveTimeline.HeadIndex;
-                    latestFullMoveUI.BlackMoveButton.onClick.RemoveAllListeners();
-                    latestFullMoveUI.BlackMoveButton.onClick.AddListener(() =>
-                    {
-                        GameManager.Instance.ResetGameToHalfMoveIndex(blackMoveIndex);
-
-                        if (GameManager.Instance.isReplayMode)
-                            GameManager.Instance.SetReplayIndex(blackMoveIndex);
-                    });
 
                     break;
                 }
@@ -481,19 +475,11 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
                     newFullMoveUI.WhiteMoveText.text = latestHalfMove.ToAlgebraicNotation();
                     newFullMoveUI.BlackMoveText.text = "";
                     newFullMoveUI.BlackMoveButton.enabled = false;
-                    newFullMoveUI.WhiteMoveButton.enabled = true;
+                    newFullMoveUI.WhiteMoveButton.interactable = false;
 
                     moveUITimeline.AddNext(newFullMoveUI);
 
                     int whiteMoveIndex = GameManager.Instance.HalfMoveTimeline.HeadIndex;
-                    newFullMoveUI.WhiteMoveButton.onClick.RemoveAllListeners();
-                    newFullMoveUI.WhiteMoveButton.onClick.AddListener(() =>
-                    {
-                        GameManager.Instance.ResetGameToHalfMoveIndex(whiteMoveIndex);
-
-                        if (GameManager.Instance.isReplayMode)
-                            GameManager.Instance.SetReplayIndex(whiteMoveIndex);
-                    });
 
                     break;
                 }
@@ -661,6 +647,8 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
         SetBoardInteraction(false);
         if (resultPanel != null) resultPanel.SetActive(true);
+
+        DisableAllControlButtons();
     }
 
     public void OnOfferDrawButtonClicked()
@@ -688,6 +676,22 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         GameManager.Instance.running = false;
         SetBoardInteraction(false);
         if (resultPanel != null) resultPanel.SetActive(true);
+
+        DisableAllControlButtons();
+    }
+
+    private void DisableAllControlButtons()
+    {
+        pauseButton.interactable = false;
+        resignButton.interactable = false;
+        drawButton.interactable = false;
+    }
+
+    private void EnableAllControlButtons()
+    {
+        if (pauseButton) pauseButton.interactable = true;
+        if (resignButton) resignButton.interactable = true;
+        if (drawButton) drawButton.interactable = true;
     }
 
 
