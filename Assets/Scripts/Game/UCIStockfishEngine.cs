@@ -282,7 +282,7 @@ namespace UnityChess.Engine
 #if UNITY_ANDROID
             // Use Android JNI bridge
             string currentFen = GameManager.Instance.SerializeGame();
-            string bestMoveStr = StockfishAndroidBridge.GetBestMove(currentFen, depth, timeoutMS);
+            string bestMoveStr = StockfishAndroidBridge.Instance.GetBestMove(currentFen, depth, timeoutMS);
             if (!string.IsNullOrEmpty(bestMoveStr))
             {
                 Movement movement = ParseUciMoveToMovement(bestMoveStr, currentFen);
