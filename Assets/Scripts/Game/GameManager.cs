@@ -430,7 +430,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         {
             if (uciEngine == null)
             {
-                uciEngine = new ChessDotNetEngine();
+                uciEngine = new StockfishEngine();
                 uciEngine.Start();
             }
 
@@ -465,6 +465,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
 
                     if (bestMove != null)
                     {
+                        Debug.Log($"[GameManager] AI move: {bestMove.Start} -> {bestMove.End}");
                         DoAIMove(bestMove);
                     }
                     else
@@ -826,6 +827,8 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         if (movedPiece == null)
         {
             Debug.LogError($"[GameManager] DoAIMove: No VisualPiece found at {move.Start}.");
+            Debug.LogError($"[GameManager] Current game state (FEN): {SerializeGame()}");
+            Debug.LogError($"[GameManager] SideToMove: {SideToMove}");
             return;
         }
 

@@ -32,53 +32,53 @@ public class VisualPiece : MonoBehaviour
     {
         if (BoardManager.Instance != null && !BoardManager.Instance.IsUserInputEnabled)
             return;
+        if (!enabled || thisTransform == null)
+            return;
+
         Debug.Log($"[VisualPiece] OnMouseDown triggered. Enabled: {enabled}");
-        if (enabled)
+
+        if (this.piece == null)
         {
-            if (this.piece == null)
-            {
-                Debug.LogError($"[VisualPiece] Piece object is null for {gameObject.name}");
-                return;
-            }
-            if (GameManager.Instance == null)
-            {
-                Debug.LogError("[VisualPiece] GameManager.Instance is null.");
-                return;
-            }
-
-            if (GameManager.Instance.CurrentBoard == null)
-            {
-                Debug.LogError("[VisualPiece] Game is not properly initialized. CurrentBoard is null.");
-                return;
-            }
-
-            Debug.Log($"[VisualPiece] OnMouseDown called for {this.piece.GetType().Name} at {CurrentSquare}. PieceColor: {PieceColor}, SideToMove: {GameManager.Instance.SideToMove}");
-            HighlightManager.Instance.ClearHighlights();
-
-            Piece currentPieceOnBoard = GameManager.Instance.CurrentBoard[CurrentSquare];
-            ICollection<Movement> legalMoves = null; // Khởi tạo để sửa lỗi CS0165
-
-            // Sửa lỗi CS1061: Truy cập logic game thông qua phương thức public TryGetLegalMoves
-            if (currentPieceOnBoard != null && GameManager.Instance.TryGetLegalMoves(currentPieceOnBoard, out legalMoves))
-            {
-                Debug.Log($"[VisualPiece] Found {legalMoves.Count} legal moves for {currentPieceOnBoard.GetType().Name} at {CurrentSquare}.");
-                HighlightManager.Instance.ShowHighlights(legalMoves, currentPieceOnBoard.Owner);
-            }
-            else
-            {
-                Debug.Log($"[VisualPiece] No legal moves found for {this.piece.GetType().Name} at {CurrentSquare} (or piece is null on board).");
-            }
-
-            piecePositionSS = boardCamera.WorldToScreenPoint(transform.position);
-
+            Debug.LogError($"[VisualPiece] Piece object is null for {gameObject.name}");
+            return;
         }
+        if (GameManager.Instance == null)
+        {
+            Debug.LogError("[VisualPiece] GameManager.Instance is null.");
+            return;
+        }
+
+        if (GameManager.Instance.CurrentBoard == null)
+        {
+            Debug.LogError("[VisualPiece] Game is not properly initialized. CurrentBoard is null.");
+            return;
+        }
+
+        Debug.Log($"[VisualPiece] OnMouseDown called for {this.piece.GetType().Name} at {CurrentSquare}. PieceColor: {PieceColor}, SideToMove: {GameManager.Instance.SideToMove}");
+        HighlightManager.Instance.ClearHighlights();
+
+        Piece currentPieceOnBoard = GameManager.Instance.CurrentBoard[CurrentSquare];
+        ICollection<Movement> legalMoves = null; // Khởi tạo để sửa lỗi CS0165
+
+        // Sửa lỗi CS1061: Truy cập logic game thông qua phương thức public TryGetLegalMoves
+        if (currentPieceOnBoard != null && GameManager.Instance.TryGetLegalMoves(currentPieceOnBoard, out legalMoves))
+        {
+            Debug.Log($"[VisualPiece] Found {legalMoves.Count} legal moves for {currentPieceOnBoard.GetType().Name} at {CurrentSquare}.");
+            HighlightManager.Instance.ShowHighlights(legalMoves, currentPieceOnBoard.Owner);
+        }
+        else
+        {
+            Debug.Log($"[VisualPiece] No legal moves found for {this.piece.GetType().Name} at {CurrentSquare} (or piece is null on board).");
+        }
+
+        piecePositionSS = boardCamera.WorldToScreenPoint(transform.position);
     }
 
     private void OnMouseDrag()
     {
         if (BoardManager.Instance != null && !BoardManager.Instance.IsUserInputEnabled)
             return;
-        if (enabled)
+        if (enabled && thisTransform != null)
         {
             Vector3 nextPiecePositionSS = new Vector3(Input.mousePosition.x, Input.mousePosition.y, piecePositionSS.z);
             thisTransform.position = boardCamera.ScreenToWorldPoint(nextPiecePositionSS);
@@ -89,7 +89,7 @@ public class VisualPiece : MonoBehaviour
     {
         if (BoardManager.Instance != null && !BoardManager.Instance.IsUserInputEnabled)
             return;
-        if (enabled)
+        if (enabled && thisTransform != null)
         {
             HighlightManager.Instance.ClearHighlights();
 
@@ -119,7 +119,11 @@ public class VisualPiece : MonoBehaviour
 
             VisualPieceMoved?.Invoke(CurrentSquare, thisTransform, closestSquareTransform);
 
-            thisTransform.rotation = Quaternion.Euler(-90f, thisTransform.rotation.eulerAngles.y, 0f);
+            // Check if transform still exists before accessing rotation
+            if (thisTransform != null)
+            {
+                thisTransform.rotation = Quaternion.Euler(-90f, thisTransform.rotation.eulerAngles.y, 0f);
+            }
         }
     }
 
