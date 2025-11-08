@@ -28,7 +28,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     [SerializeField] private AudioClip sfxCheck;
 
     [Header("AI Settings")]
-    [SerializeField] private int aiThinkTimeMs = 750;
+    [SerializeField] private int aiThinkTimeMs = 500;
     [Header("Time Control")]
     [SerializeField] private TMPro.TextMeshProUGUI whiteTimeText;
     [SerializeField] private TMPro.TextMeshProUGUI blackTimeText;
@@ -430,7 +430,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         {
             if (uciEngine == null)
             {
-                uciEngine = new StockfishEngine();
+                uciEngine = new MockUCIEngine();
                 uciEngine.Start();
             }
 

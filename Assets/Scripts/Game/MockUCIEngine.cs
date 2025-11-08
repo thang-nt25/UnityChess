@@ -17,7 +17,7 @@ namespace UnityChess.Engine
         private Board _currentBoard => GetCurrentBoard();
 
         // Chỉ dùng max depth 5
-        public enum Difficulty { Easy = 1, Medium = 3, Hard = 5 }
+        public enum Difficulty { Easy = 1, Medium = 5, Hard = 10 }
         private Difficulty _difficulty = Difficulty.Medium;
 
         public void SetDifficulty(Difficulty diff) => _difficulty = diff;
@@ -73,7 +73,7 @@ namespace UnityChess.Engine
             int baseDelay = Mathf.Clamp(thinkTimeMs, 100, 500);
 
             // Tăng thời gian chờ dựa trên độ khó
-            int adjustedDelay = baseDelay + (currentDepth * 700);
+            int adjustedDelay = baseDelay + (currentDepth * 200);
             if (adjustedDelay > 0) await Task.Delay(adjustedDelay);
 
             var allLegalMoves = CollectAllLegalMoves(_game);
@@ -85,59 +85,77 @@ namespace UnityChess.Engine
                 return allLegalMoves[idx];
             }
 
-            // TÌM KIẾM SÂU (MEDIUM VÀ HARD)
+            // MINIMAX VỚI ALPHA-BETA PRUNING (MEDIUM VÀ HARD)
             float bestScore = float.MinValue;
             Movement bestMove = null;
+            float alpha = float.MinValue;
+            float beta = float.MaxValue;
 
-            // HARD (depth=5) sẽ lặp 50 lần. MEDIUM (depth=3) lặp 10 lần.
-            int searchIterations = (currentDepth == 5) ? 50 : 10;
-
-            for (int i = 0; i < searchIterations; i++)
+            foreach (var move in allLegalMoves)
             {
-                Movement move = allLegalMoves[_rng.Next(allLegalMoves.Count)];
+                // Simulate move
+                Board simulatedBoard = SimulateMove(_currentBoard, move);
+                if (simulatedBoard == null) continue;
 
-                // Đánh giá nước đi của AI (Maximize)
-                float score = EvaluateMove(move, currentDepth);
+                // Đánh giá với minimax
+                float score = Minimax(simulatedBoard, GetOppositeSide(GetPieceOwner(_currentBoard, move)), currentDepth - 1, false, alpha, beta);
 
-                // MINIMAX 2-PLY GIẢ LẬP: Tính toán LỢI/HẠI khi đối thủ phản công
-                var simulatedBoard = SimulateMove(_currentBoard, move);
-                float worstReplyScore = 0;
-
-                if (simulatedBoard != null && currentDepth >= 3) // Chỉ tính phản công từ Medium trở lên
+                if (score > bestScore)
                 {
-                    Side opponentSide = GetOppositeSide(GetPieceOwner(simulatedBoard, move));
-                    var replyMoves = CollectAllLegalMovesFromBoard(simulatedBoard, opponentSide);
-
-                    if (replyMoves.Count > 0)
-                    {
-                        // Tìm nước đi tốt nhất của đối thủ (sẽ tạo ra điểm số cao nhất)
-                        worstReplyScore = float.MinValue;
-                        int replySearchCount = Math.Min(5, replyMoves.Count); // Kiểm tra 5 nước phản công hàng đầu
-
-                        for (int k = 0; k < replySearchCount; k++)
-                        {
-                            Movement reply = replyMoves[_rng.Next(replyMoves.Count)];
-
-                            // Đánh giá nước reply TỪ GÓC ĐỘ CỦA ĐỐI THỦ
-                            float replyEvaluation = EvaluateMove(reply, currentDepth);
-
-                            worstReplyScore = Math.Max(worstReplyScore, replyEvaluation);
-                        }
-                    }
-                }
-
-                // Công thức Minimax: Ta muốn tối đa hóa (score - worstReplyScore)
-                // Hình phạt rất nặng cho nước đi dẫn đến phản công mạnh của đối thủ
-                float total = score - 1.0f * worstReplyScore;
-
-                if (total > bestScore)
-                {
-                    bestScore = total;
+                    bestScore = score;
                     bestMove = move;
                 }
+
+                alpha = Math.Max(alpha, bestScore);
             }
 
             return bestMove;
+        }
+
+        private float Minimax(Board board, Side sideToMove, int depth, bool isMaximizing, float alpha, float beta)
+        {
+            if (depth == 0)
+            {
+                return EvaluateBoard(board, sideToMove);
+            }
+
+            var legalMoves = CollectAllLegalMovesFromBoard(board, sideToMove);
+            if (legalMoves.Count == 0)
+            {
+                // Checkmate hoặc stalemate
+                return isMaximizing ? float.MinValue : float.MaxValue;
+            }
+
+            if (isMaximizing)
+            {
+                float maxEval = float.MinValue;
+                foreach (var move in legalMoves)
+                {
+                    Board newBoard = SimulateMove(board, move);
+                    if (newBoard == null) continue;
+
+                    float eval = Minimax(newBoard, GetOppositeSide(sideToMove), depth - 1, false, alpha, beta);
+                    maxEval = Math.Max(maxEval, eval);
+                    alpha = Math.Max(alpha, eval);
+                    if (beta <= alpha) break; // Prune
+                }
+                return maxEval;
+            }
+            else
+            {
+                float minEval = float.MaxValue;
+                foreach (var move in legalMoves)
+                {
+                    Board newBoard = SimulateMove(board, move);
+                    if (newBoard == null) continue;
+
+                    float eval = Minimax(newBoard, GetOppositeSide(sideToMove), depth - 1, true, alpha, beta);
+                    minEval = Math.Min(minEval, eval);
+                    beta = Math.Min(beta, eval);
+                    if (beta <= alpha) break; // Prune
+                }
+                return minEval;
+            }
         }
 
         // --- HÀM HỖ TRỢ BÀN CỜ ---
@@ -233,99 +251,54 @@ namespace UnityChess.Engine
             return bishopCount == 2;
         }
 
-        // --- HÀM ĐÁNH GIÁ CHÍNH (Độ sâu 5) ---
-
-        private float EvaluateMove(Movement move, int depth)
+        private float EvaluateBoard(Board board, Side sideToMove)
         {
             float score = 0f;
-            Board board = _currentBoard;
-            if (board == null) return 0;
 
-            Piece movedPiece = board[move.Start];
-            if (movedPiece == null) return float.MinValue;
-
-            Piece capturedPiece = board[move.End];
-            Side currentSide = movedPiece.Owner;
-            Side attackerSide = GetOppositeSide(currentSide);
-
-            float movedValue = GetPieceValue(movedPiece);
-            float capturedValue = capturedPiece != null ? GetPieceValue(capturedPiece) : 0f;
-
-            // 1. TÍNH TOÁN LỢI/HẠI VẬT CHẤT (ĂN CÁI NÀY THÌ MẤT GÌ?)
-            if (capturedValue > 0)
+            // Material evaluation
+            for (int f = 1; f <= 8; f++)
             {
-                float net = capturedValue - movedValue;
-                // Nếu lời hoặc hòa, thưởng cực mạnh (200x)
-                if (net >= 0) score += net * 200f;
-                // Nếu lỗ (thí quân ăn chốt), phạt mạnh (100x)
-                else score += net * 100f;
-            }
-
-            // 2. PHẠT RỦI RO VÀ AN TOÀN TUYỆT ĐỐI (Mình sẽ yếu đi?)
-            if (depth >= 3 && !(movedPiece is King))
-            {
-                // Phạt cực nặng nếu quân di chuyển đến ô bị tấn công
-                if (IsSquareAttacked(board, move.End, attackerSide))
+                for (int r = 1; r <= 8; r++)
                 {
-                    bool defended = IsSquareAttacked(board, move.End, currentSide);
-                    if (!defended)
+                    Piece p = board[f, r];
+                    if (p != null)
                     {
-                        // Thí quân miễn phí: Phạt 500% giá trị quân
-                        score -= movedValue * 500f;
-                    }
-                    else
-                    {
-                        // Đổi quân không cần thiết/bị tấn công: Phạt 50% giá trị quân
-                        score -= movedValue * 50f;
+                        float value = GetPieceValue(p);
+                        if (p.Owner == sideToMove)
+                        {
+                            score += value;
+                        }
+                        else
+                        {
+                            score -= value;
+                        }
+
+                        // Position bonus
+                        if (p is Pawn)
+                        {
+                            int rankBonus = (p.Owner == Side.White) ? r : 9 - r;
+                            score += (p.Owner == sideToMove ? 1 : -1) * rankBonus * 0.1f;
+                        }
+                        else if (p is Knight || p is Bishop)
+                        {
+                            // Center control
+                            if ((f >= 4 && f <= 5) && (r >= 4 && r <= 5))
+                            {
+                                score += (p.Owner == sideToMove ? 1 : -1) * 0.2f;
+                            }
+                        }
                     }
                 }
             }
 
-            // 3. CHIẾN THUẬT GÂY DỰNG
+            // Bishop pair bonus
+            if (HasBishopPair(board, sideToMove)) score += 0.5f;
+            if (HasBishopPair(board, GetOppositeSide(sideToMove))) score -= 0.5f;
 
-            if (move is CastlingMove) score += 60f; // Tăng điểm nhập thành
-
-            // Phát triển/Trung tâm
-            if (movedPiece is Knight || movedPiece is Bishop)
-            {
-                if (move.Start.Rank == (currentSide == Side.White ? 1 : 8)) score += 20f; // Phát triển sớm
-            }
-            if (Array.Exists(CENTER_SQUARES, s => s.Equals(move.End))) score += 15f; // Kiểm soát trung tâm
-
-            // Xe và Cột Mở
-            if (movedPiece is Rook)
-            {
-                if (IsLineOpen(board, move.End, currentSide)) score += 25f;
-            }
-
-            // Cặp Tượng
-            if (HasBishopPair(board, currentSide)) score += BISHOP_PAIR_BONUS * 15f;
-
-
-            // 4. TÀN CUỘC & TỐT THÔNG (depth 5)
-            if (depth == 5)
-            {
-                if (movedPiece is Pawn)
-                {
-                    if (IsPassedPawn(board, move.End, currentSide))
-                    {
-                        float rankProgress = currentSide == Side.White ? move.End.Rank : 9 - move.End.Rank;
-                        score += rankProgress * 150f; // Điểm thưởng siêu cao cho Tốt thông
-                    }
-                    else
-                    {
-                        float rankProgress = currentSide == Side.White ? move.End.Rank : 9 - move.End.Rank;
-                        score += rankProgress * 10f;
-                    }
-                }
-                if (movedPiece is King) score += 20f; // King tham gia tàn cuộc
-            }
-            else if (movedPiece is King) score -= 15f;
-
-            if (move is PromotionMove) score += KING_VALUE * 4f;
-
-            // Ngẫu nhiên (rất nhỏ ở cấp độ Hard)
-            score += (float)_rng.NextDouble() * 0.05f;
+            // Mobility bonus
+            int myMobility = CollectAllLegalMovesFromBoard(board, sideToMove).Count;
+            int oppMobility = CollectAllLegalMovesFromBoard(board, GetOppositeSide(sideToMove)).Count;
+            score += (myMobility - oppMobility) * 0.01f;
 
             return score;
         }
