@@ -593,6 +593,8 @@ MonoBehaviour:
   fadeTime: 0.5
   mainButtonsContainer: {fileID: 1252782445}
   playModePopup: {fileID: 2033325664}
+  settingsPopup: {fileID: 1514952526}
+  historyPopup: {fileID: 932819123}
   whiteAIDifficultyPopup: {fileID: 12736807}
   blackAIDifficultyPopup: {fileID: 228916823}
 --- !u!4 &75272453
@@ -1964,9 +1966,9 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 788158554}
-        m_TargetAssemblyTypeName: SettingsMenuController, Assembly-CSharp
-        m_MethodName: OnBackButtonPressed
+      - m_Target: {fileID: 75272452}
+        m_TargetAssemblyTypeName: MainMenu, Assembly-CSharp
+        m_MethodName: CloseAllPopups
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -6061,9 +6063,9 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 788158554}
-        m_TargetAssemblyTypeName: SettingsMenuController, Assembly-CSharp
-        m_MethodName: OnHistoryBackButtonPressed
+      - m_Target: {fileID: 75272452}
+        m_TargetAssemblyTypeName: MainMenu, Assembly-CSharp
+        m_MethodName: CloseAllPopups
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -6892,9 +6894,9 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 788158554}
-        m_TargetAssemblyTypeName: SettingsMenuController, Assembly-CSharp
-        m_MethodName: OnSettingsButtonPressed
+      - m_Target: {fileID: 75272452}
+        m_TargetAssemblyTypeName: MainMenu, Assembly-CSharp
+        m_MethodName: OpenSettings
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -7536,7 +7538,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 75272452}
         m_TargetAssemblyTypeName: MainMenu, Assembly-CSharp
-        m_MethodName: HidePlayModePopup
+        m_MethodName: CloseAllPopups
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -7783,9 +7785,9 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 788158554}
-        m_TargetAssemblyTypeName: SettingsMenuController, Assembly-CSharp
-        m_MethodName: OnViewHistoryButtonPressed
+      - m_Target: {fileID: 75272452}
+        m_TargetAssemblyTypeName: MainMenu, Assembly-CSharp
+        m_MethodName: OpenHistory
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
