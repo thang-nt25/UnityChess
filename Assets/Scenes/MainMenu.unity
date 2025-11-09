@@ -9656,7 +9656,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 75272452}
         m_TargetAssemblyTypeName: MainMenu, Assembly-CSharp
-        m_MethodName: HidePlayModePopup
+        m_MethodName: CloseAllPopups
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -10426,7 +10426,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 75272452}
         m_TargetAssemblyTypeName: MainMenu, Assembly-CSharp
-        m_MethodName: HidePlayModePopup
+        m_MethodName: CloseAllPopups
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
