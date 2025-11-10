@@ -41,6 +41,9 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
     [SerializeField] private Button resignButton = null;
     [SerializeField] private Button drawButton = null;
 
+    [Header("Timer")]
+    [SerializeField] private GameObject timerPanel = null;
+
 
     [Header("AI Difficulty")]
     [SerializeField] private TMP_Text aiDifficultyText = null;
@@ -203,6 +206,8 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         }
 
         SetBoardInteraction(true);
+
+        if (timerPanel != null) timerPanel.SetActive(true);
 
         UpdateControlButtonsVisibility();
 
@@ -732,6 +737,9 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         {
             leftBarGameObject.SetActive(isVisible);
         }
+
+        if (timerPanel != null)
+            timerPanel.SetActive(!isVisible);
     }
 
     private void UpdateControlButtonsVisibility()

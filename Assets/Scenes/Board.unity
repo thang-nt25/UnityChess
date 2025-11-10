@@ -11376,6 +11376,7 @@ MonoBehaviour:
   pauseButton: {fileID: 1677266636}
   resignButton: {fileID: 540205798}
   drawButton: {fileID: 1012695110}
+  timerPanel: {fileID: 1991216213}
   aiDifficultyText: {fileID: 0}
 --- !u!222 &1342442566114413360
 CanvasRenderer:
