@@ -106,6 +106,15 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         UpdateControlButtonsVisibility();
     }
 
+    private void OnDestroy()
+    {
+        GameManager.NewGameStartedEvent -= OnNewGameStarted;
+        GameManager.GameEndedEvent -= OnGameEnded;
+        GameManager.MoveExecutedEvent -= OnMoveExecuted;
+        GameManager.GameResetToHalfMoveEvent -= OnGameResetToHalfMove;
+    }
+
+
     private void SetResultImageActive(bool winActive, bool loseActive, bool drawActive)
     {
         if (winImage) winImage.gameObject.SetActive(winActive);
