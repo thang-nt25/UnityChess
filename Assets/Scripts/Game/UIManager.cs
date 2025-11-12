@@ -125,9 +125,7 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
     private void ShowWinner(Side winner)
     {
-        SetResultImageActive(false, false, false);
-        if (whiteWinImage) whiteWinImage.gameObject.SetActive(false);
-        if (blackWinImage) blackWinImage.gameObject.SetActive(false);
+        HideAllResultImages();
 
         var raw = PlayerPrefs.GetString("GameMode", AIMode.HumanVsHuman.ToString());
         System.Enum.TryParse<AIMode>(raw, out var mode);
@@ -189,6 +187,20 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         if (blackWinImage) blackWinImage.gameObject.SetActive(false);
         if (gameStatusText) gameStatusText.text = "";
 
+        UpdateAIDifficultyText();
+        SetBoardInteraction(true);
+
+        if (timerPanel != null) timerPanel.SetActive(true);
+
+        UpdateControlButtonsVisibility();
+
+        EnableAllControlButtons();
+
+        GameManager.Instance.running = true;
+    }
+
+    private void UpdateAIDifficultyText()
+    {
         if (aiDifficultyText != null)
         {
             string mode = PlayerPrefs.GetString("GameMode", "PlayerVsPlayer");
@@ -204,16 +216,6 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
             }
             else aiDifficultyText.text = "Mode: Player vs Player";
         }
-
-        SetBoardInteraction(true);
-
-        if (timerPanel != null) timerPanel.SetActive(true);
-
-        UpdateControlButtonsVisibility();
-
-        EnableAllControlButtons();
-
-        GameManager.Instance.running = true;
     }
 
 
@@ -223,9 +225,7 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         if (gm == null)
             return;
 
-        SetResultImageActive(false, false, false);
-        if (whiteWinImage) whiteWinImage.gameObject.SetActive(false);
-        if (blackWinImage) blackWinImage.gameObject.SetActive(false);
+        HideAllResultImages();
 
         switch (gm.LastEndReason)
         {
@@ -545,9 +545,7 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
     public void CloseResultScreen()
     {
-        SetResultImageActive(false, false, false);
-        if (whiteWinImage) whiteWinImage.gameObject.SetActive(false);
-        if (blackWinImage) blackWinImage.gameObject.SetActive(false);
+        HideAllResultImages();
 
         if (resultPanel != null) resultPanel.SetActive(false);
 
@@ -589,9 +587,7 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
             if (gameStatusText)
                 gameStatusText.text = "Game Paused";
 
-            SetResultImageActive(false, false, false);
-            if (whiteWinImage) whiteWinImage.gameObject.SetActive(false);
-            if (blackWinImage) blackWinImage.gameObject.SetActive(false);
+            HideAllResultImages();
             if (resultPanel != null) resultPanel.SetActive(false);
 
             GameManager.Instance.PauseTimer();
@@ -710,6 +706,7 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         }
         else
         {
+            if (BoardManager.Instance == null) return;
             BoardManager.Instance.SetActiveAllPieces(active);
         }
     }
@@ -757,5 +754,11 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
             gameStatusText.text = text;
     }
 
+    private void HideAllResultImages()
+    {
+        SetResultImageActive(false, false, false);
+        if (whiteWinImage) whiteWinImage.gameObject.SetActive(false);
+        if (blackWinImage) blackWinImage.gameObject.SetActive(false);
+    }
 
 }
