@@ -227,80 +227,60 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         }
     }
 
-
     public void OnGameEnded()
     {
         var gm = GameManager.Instance;
-        if (gm == null)
-            return;
+        if (gm == null) return;
 
         HideAllResultImages();
+
+        Side playerSide = GetPlayerSide();
+        Side winner = gm.LastWinner;
+        bool playerWin = (winner == playerSide);
 
         switch (gm.LastEndReason)
         {
             case GameManager.GameEndReason.Checkmate:
-                ShowWinner(gm.LastWinner);
-                if (gameStatusText) gameStatusText.text = $"{gm.LastWinner} wins by checkmate";
+                ShowWinner(winner);
+                if (gameStatusText)
+                    gameStatusText.text = playerWin ? "You Win! (Checkmate)" : "You Lose! (Checkmate)";
+                break;
+
+            case GameManager.GameEndReason.Resign:
+                ShowWinner(winner);
+                if (gameStatusText)
+                    gameStatusText.text = playerWin ? "You Win! (Opponent Resigned)" : "You Lose! (You Resigned)";
+                break;
+
+            case GameManager.GameEndReason.Timeout:
+                ShowWinner(winner);
+                if (gameStatusText)
+                    gameStatusText.text = playerWin ? "You Win! (Timeout)" : "You Lose! (Timeout)";
                 break;
 
             case GameManager.GameEndReason.Stalemate:
                 SetResultImageActive(false, false, true);
-                if (gameStatusText) gameStatusText.text = "Draw (Stalemate)";
-                break;
-
-            case GameManager.GameEndReason.Timeout:
-                if (IsPvP())
-                {
-                    if (gm.LastWinner == Side.White)
-                    {
-                        if (whiteWinImage) whiteWinImage.gameObject.SetActive(true);
-                    }
-                    else
-                    {
-                        if (blackWinImage) blackWinImage.gameObject.SetActive(true);
-                    }
-
-                    if (gameStatusText) gameStatusText.text = $"{gm.LastWinner} wins (Timeout)";
-                    if (resultPanel) resultPanel.SetActive(true);
-                }
-                else
-                {
-                    bool playerWin = (gm.LastWinner == GetPlayerSide());
-                    SetResultImageActive(playerWin, !playerWin, false);
-
-                    if (gameStatusText) gameStatusText.text = playerWin
-                        ? $"You Win! ({gm.LastWinner} wins by Timeout)"
-                        : $"You Lose! ({gm.LastWinner} wins by Timeout)";
-                }
+                if (gameStatusText)
+                    gameStatusText.text = "Draw (Stalemate)";
                 break;
 
             case GameManager.GameEndReason.Draw:
             case GameManager.GameEndReason.None:
             default:
-                if (GameManager.Instance.HalfMoveTimeline != null &&
-                    GameManager.Instance.HalfMoveTimeline.TryGetCurrent(out HalfMove latestHalfMove))
-                {
-                    if (latestHalfMove.CausedStalemate)
-                    {
-                        SetResultImageActive(false, false, true);
-                        if (gameStatusText) gameStatusText.text = "Draw (Stalemate)";
-                    }
-                    else if (latestHalfMove.CausedCheckmate)
-                    {
-                        Side winner = GameManager.Instance.SideToMove.Complement();
-                        ShowWinner(winner);
-                        if (gameStatusText) gameStatusText.text = $"{winner} wins by checkmate";
-                    }
-                }
+                SetResultImageActive(false, false, true);
+                if (gameStatusText)
+                    gameStatusText.text = "Draw";
                 break;
         }
 
+        // Hiển thị panel kết quả
         SetBoardInteraction(false);
         if (resultPanel != null) resultPanel.SetActive(true);
         Time.timeScale = 0f;
 
-        GameManager.Instance.running = false;
+        gm.running = false;
     }
+
 
 
 
@@ -649,8 +629,8 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
         if (gameStatusText)
             gameStatusText.text = playerWin
-                ? "Game Resign"
-                : "Game Resign. You lose";
+                ? "Opponent Resigned. Game Over (You Win)"
+                : "You Resigned. Game Over (You Lose)";
 
         Time.timeScale = 0f;
         GameManager.Instance.running = false;

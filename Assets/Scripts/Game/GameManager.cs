@@ -19,7 +19,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     public static event Action GameEndedEvent;
     public static event Action GameResetToHalfMoveEvent;
     public static event Action MoveExecutedEvent;
-    public enum GameEndReason { None, Checkmate, Stalemate, Timeout, Draw }
+    public enum GameEndReason { None, Checkmate, Stalemate, Timeout, Resign, Draw }
     public GameEndReason LastEndReason { get; set; } = GameEndReason.None;
     public Side LastWinner { get; set; } = Side.None;
 
