@@ -42,6 +42,8 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     private bool isReplayingMove = false;
     public int CurrentReplayIndex => currentReplayIndex;
 
+    public bool IsAIThinking { get; set; } = false;
+
 
     private int WhiteAIDifficulty = 3;
     private int BlackAIDifficulty = 3;
@@ -126,7 +128,10 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         Side.Black => (LatestHalfMoveIndex + 1) / 2 + 1,
         _ => -1
     };
-    public bool CanUndo => _halfMoveIndicesForUndo != null && _halfMoveIndicesForUndo.Count > 1;
+
+    public bool CanUndo => !isReplayMode && game != null && LatestHalfMoveIndex > -1;
+
+    public bool CanRedo => !isReplayMode && game != null && LatestHalfMoveIndex < HalfMoveTimeline.Count - 1;
 
     public List<(Square, Piece)> CurrentPieces
     {
@@ -416,8 +421,14 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         LastEndReason = GameEndReason.None;
         LastWinner = Side.None;
         InitClock();
-        _halfMoveIndicesForUndo = new Stack<int>();
-        _halfMoveIndicesForUndo.Push(game.HalfMoveTimeline.HeadIndex);
+
+        game = new Game();
+        LastEndReason = GameEndReason.None;
+        LastWinner = Side.None;
+        InitClock();
+
+        //_halfMoveIndicesForUndo = new Stack<int>();
+        //_halfMoveIndicesForUndo.Push(game.HalfMoveTimeline.HeadIndex);
 
         promotionTcs = null;
         if (UIManager.Instance != null)
@@ -593,7 +604,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         }
 
         MoveExecutedEvent?.Invoke();
-        _halfMoveIndicesForUndo.Push(game.HalfMoveTimeline.HeadIndex);
+        //_halfMoveIndicesForUndo.Push(game.HalfMoveTimeline.HeadIndex);
 
         if (BoardManager.Instance != null)
         {
@@ -811,6 +822,19 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
             {
                 Debug.LogError("AI Move failed after human move: Engine returned a null move.");
             }
+        }
+
+        if (!gameIsOver
+                    && !isReplayMode
+                    && uciEngine != null
+                    && ((SideToMove == Side.White && isWhiteAI) || (SideToMove == Side.Black && isBlackAI)))
+        {
+            IsAIThinking = true; 
+            int currentDepth = SideToMove == Side.White ? WhiteAIDifficulty : BlackAIDifficulty;
+            Movement bestMove = await uciEngine.GetBestMove(aiThinkTimeMs, currentDepth);
+            IsAIThinking = false; 
+
+            if (bestMove != null) DoAIMove(bestMove);
         }
     }
 
@@ -1050,4 +1074,39 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
 
         Debug.Log($"Replay index đã được set thành: {currentReplayIndex}");
     }
+
+    public void StepBack()
+    {
+        if (!CanUndo) return;
+
+        if (uciEngine != null && IsAIThinking)
+        {
+            Debug.LogWarning("Cannot Undo while AI is thinking.");
+            return;
+        }
+
+        bool isVsAI = CurrentGameMode == GameMode.PlayerVsAIWhite || CurrentGameMode == GameMode.PlayerVsAIBlack;
+
+        if (isVsAI)
+        {
+            ResetGameToHalfMoveIndex(LatestHalfMoveIndex - 1);
+
+            if (LatestHalfMoveIndex > -1)
+            {
+                ResetGameToHalfMoveIndex(LatestHalfMoveIndex - 1);
+            }
+        }
+        else
+        {
+            ResetGameToHalfMoveIndex(LatestHalfMoveIndex - 1);
+        }
+    }
+
+    public void StepForward()
+    {
+        if (!CanRedo) return;
+
+        ResetGameToHalfMoveIndex(LatestHalfMoveIndex + 1);
+    }
+
 }

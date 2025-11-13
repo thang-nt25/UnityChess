@@ -48,6 +48,10 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
     [Header("AI Difficulty")]
     [SerializeField] private TMP_Text aiDifficultyText = null;
 
+    [Header("In-Game Navigation")]
+    [SerializeField] private Button inGameUndoButton; 
+    [SerializeField] private Button inGameRedoButton;
+
     private bool isPaused = false;
     private Timeline<FullMoveUI> moveUITimeline;
     private Color buttonColor;
@@ -104,6 +108,11 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
         SetTraversalBarVisibility(GameManager.Instance.isReplayMode);
         UpdateControlButtonsVisibility();
+
+        if (inGameUndoButton) inGameUndoButton.onClick.AddListener(OnInGameUndoClicked);
+        if (inGameRedoButton) inGameRedoButton.onClick.AddListener(OnInGameRedoClicked);
+
+        UpdateInGameNavButtons();
     }
 
     private void OnDestroy()
@@ -206,6 +215,8 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         EnableAllControlButtons();
 
         GameManager.Instance.running = true;
+
+        UpdateInGameNavButtons();
     }
 
     private void UpdateAIDifficultyText()
@@ -341,6 +352,8 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
             else
                 gameStatusText.text = "";
         }
+
+        UpdateInGameNavButtons();
     }
 
 
@@ -359,6 +372,8 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
         moveUITimeline.HeadIndex = GameManager.Instance.LatestHalfMoveIndex / 2;
         ValidateIndicators();
+
+        UpdateInGameNavButtons();
     }
 
     public void SetActivePromotionUI(bool value)
@@ -768,6 +783,35 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         SetResultImageActive(false, false, false);
         if (whiteWinImage) whiteWinImage.gameObject.SetActive(false);
         if (blackWinImage) blackWinImage.gameObject.SetActive(false);
+    }
+
+    public void OnInGameUndoClicked()
+    {
+        GameManager.Instance.StepBack();
+    }
+
+    public void OnInGameRedoClicked()
+    {
+        GameManager.Instance.StepForward();
+    }
+
+    private void UpdateInGameNavButtons()
+    {
+        if (GameManager.Instance == null) return;
+
+        bool isReplay = GameManager.Instance.isReplayMode;
+
+        if (inGameUndoButton)
+        {
+            inGameUndoButton.gameObject.SetActive(!isReplay);
+            inGameUndoButton.interactable = GameManager.Instance.CanUndo;
+        }
+
+        if (inGameRedoButton)
+        {
+            inGameRedoButton.gameObject.SetActive(!isReplay);
+            inGameRedoButton.interactable = GameManager.Instance.CanRedo;
+        }
     }
 
 }
