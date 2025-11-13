@@ -26,14 +26,20 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager>
 
         InitializeSquareGameObjects();
 
-        if (capturedPiecesUI != null)
-        {
-            foreach (Transform child in capturedPiecesUI.whiteArea)
-                Destroy(child.gameObject);
-            foreach (Transform child in capturedPiecesUI.blackArea)
-                Destroy(child.gameObject);
-        }
+        ClearCapturedPiecesUI();
     }
+
+    private void ClearCapturedPiecesUI()
+    {
+        if (capturedPiecesUI == null) return;
+
+        foreach (Transform child in capturedPiecesUI.whiteArea)
+            Destroy(child.gameObject);
+
+        foreach (Transform child in capturedPiecesUI.blackArea)
+            Destroy(child.gameObject);
+    }
+
 
     private void InitializeSquareGameObjects()
     {
@@ -89,13 +95,7 @@ public class BoardManager : MonoBehaviourSingleton<BoardManager>
 
         ClearBoard();
 
-        if (capturedPiecesUI != null)
-        {
-            foreach (Transform child in capturedPiecesUI.whiteArea)
-                Destroy(child.gameObject);
-            foreach (Transform child in capturedPiecesUI.blackArea)
-                Destroy(child.gameObject);
-        }
+        ClearCapturedPiecesUI();
 
         // CHỈ DÙNG LOGICAL SQUARE (vì bàn cờ đã xoay vật lý)
         List<(Square logicalSquare, Piece piece)> currentPieces = GameManager.Instance.CurrentPieces;
