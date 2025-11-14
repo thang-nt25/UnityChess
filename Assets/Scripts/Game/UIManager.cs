@@ -643,8 +643,8 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
         if (gameStatusText)
             gameStatusText.text = playerWin
-                ? "Opponent Resigned. Game Over (You Win)"
-                : "You Resigned. Game Over (You Lose)";
+                ? "Resigned. Game Over"
+                : "Resigned. Game Over";
 
         Time.timeScale = 0f;
         GameManager.Instance.running = false;
