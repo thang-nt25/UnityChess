@@ -689,6 +689,12 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         pauseButton.interactable = false;
         resignButton.interactable = false;
         drawButton.interactable = false;
+
+        if (inGameUndoButton != null)
+            inGameUndoButton.interactable = false;
+
+        if (inGameRedoButton != null)
+            inGameRedoButton.interactable = false;
     }
 
     private void EnableAllControlButtons()
@@ -720,6 +726,7 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         {
             GameManager.Instance.OnClick_WatchReplay();
             UpdateControlButtonsVisibility();
+            UpdateInGameNavButtons();
         }
     }
 
