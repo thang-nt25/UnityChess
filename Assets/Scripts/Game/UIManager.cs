@@ -382,7 +382,7 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         }
         else
         {
-            GameManager.Instance.UndoLastMove();
+            GameManager.Instance.StepBack();
         }
     }
 
@@ -394,8 +394,7 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         }
         else
         {
-            int maxIndex = (GameManager.Instance.HalfMoveTimeline?.Count ?? 1) - 1;
-            GameManager.Instance.ResetGameToHalfMoveIndex(Math.Min(GameManager.Instance.LatestHalfMoveIndex + 1, maxIndex));
+            GameManager.Instance.StepForward();
         }
     }
 

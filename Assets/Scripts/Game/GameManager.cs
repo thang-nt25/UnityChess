@@ -44,6 +44,9 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
 
     public bool IsAIThinking { get; set; } = false;
 
+    public bool CanUndo => !isReplayMode && game != null && LatestHalfMoveIndex > 1;
+    public bool CanRedo => !isReplayMode && game != null && LatestHalfMoveIndex < HalfMoveTimeline.Count - 1;
+
 
     private int WhiteAIDifficulty = 3;
     private int BlackAIDifficulty = 3;
@@ -129,9 +132,6 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         _ => -1
     };
 
-    public bool CanUndo => !isReplayMode && game != null && LatestHalfMoveIndex > -1;
-
-    public bool CanRedo => !isReplayMode && game != null && LatestHalfMoveIndex < HalfMoveTimeline.Count - 1;
 
     public List<(Square, Piece)> CurrentPieces
     {
@@ -157,7 +157,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     private Dictionary<GameSerializationType, IGameSerializer> serializersByType;
     private GameSerializationType selectedSerializationType = GameSerializationType.FEN;
     private IUCIEngine uciEngine;
-    private Stack<int> _halfMoveIndicesForUndo;
+
 
 
     public void Awake()
@@ -907,21 +907,21 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         StartNewGame(lastWhiteAI, lastBlackAI);
     }
 
-    public void UndoLastMove()
-    {
-        if (isReplayMode) return;
+    //public void UndoLastMove()
+    //{
+    //    if (isReplayMode) return;
 
-        if (_halfMoveIndicesForUndo == null || _halfMoveIndicesForUndo.Count <= 1)
-        {
-            Debug.Log("Cannot undo: No moves or only initial state left.");
-            return;
-        }
+    //    if (_halfMoveIndicesForUndo == null || _halfMoveIndicesForUndo.Count <= 1)
+    //    {
+    //        Debug.Log("Cannot undo: No moves or only initial state left.");
+    //        return;
+    //    }
 
-        _halfMoveIndicesForUndo.Pop();
-        int previousHalfMoveIndex = _halfMoveIndicesForUndo.Peek();
+    //    _halfMoveIndicesForUndo.Pop();
+    //    int previousHalfMoveIndex = _halfMoveIndicesForUndo.Peek();
 
-        ResetGameToHalfMoveIndex(previousHalfMoveIndex);
-    }
+    //    ResetGameToHalfMoveIndex(previousHalfMoveIndex);
+    //}
 
     private static Vector3 GetSquareWorldCenter(Transform square)
     {
@@ -1078,35 +1078,90 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     public void StepBack()
     {
         if (!CanUndo) return;
-
-        if (uciEngine != null && IsAIThinking)
-        {
-            Debug.LogWarning("Cannot Undo while AI is thinking.");
-            return;
-        }
+        if (uciEngine != null && IsAIThinking) return; // Chặn khi AI đang nghĩ
 
         bool isVsAI = CurrentGameMode == GameMode.PlayerVsAIWhite || CurrentGameMode == GameMode.PlayerVsAIBlack;
+        int targetIndex;
 
         if (isVsAI)
         {
-            ResetGameToHalfMoveIndex(LatestHalfMoveIndex - 1);
-
-            if (LatestHalfMoveIndex > -1)
-            {
-                ResetGameToHalfMoveIndex(LatestHalfMoveIndex - 1);
-            }
+            targetIndex = LatestHalfMoveIndex - 2;
         }
         else
         {
-            ResetGameToHalfMoveIndex(LatestHalfMoveIndex - 1);
+            targetIndex = LatestHalfMoveIndex - 1;
         }
+        ResetGameToHalfMoveIndex(Math.Max(-1, targetIndex));
+
+        CheckAndTriggerAI();
     }
 
     public void StepForward()
     {
         if (!CanRedo) return;
 
-        ResetGameToHalfMoveIndex(LatestHalfMoveIndex + 1);
+        bool isVsAI = CurrentGameMode == GameMode.PlayerVsAIWhite || CurrentGameMode == GameMode.PlayerVsAIBlack;
+        int targetIndex;
+
+        if (isVsAI)
+        {
+            targetIndex = LatestHalfMoveIndex + 2;
+        }
+        else
+        {
+            targetIndex = LatestHalfMoveIndex + 1;
+        }
+
+        int maxIndex = HalfMoveTimeline.Count - 1;
+        ResetGameToHalfMoveIndex(Math.Min(maxIndex, targetIndex));
+
+        CheckAndTriggerAI();
     }
+
+    private async void TriggerAIMove()
+    {
+        if (game == null || uciEngine == null || isReplayMode || IsAIThinking) return;
+        bool gameIsOver = game.HalfMoveTimeline.TryGetCurrent(out HalfMove tailHalfMove)
+                          && (tailHalfMove.CausedStalemate || tailHalfMove.CausedCheckmate);
+        if (gameIsOver) return;
+        bool aiTurn = (SideToMove == Side.White && isWhiteAI) || (SideToMove == Side.Black && isBlackAI);
+        if (!aiTurn) return;
+
+        Debug.Log("[GameManager] Kích hoạt AI sau khi Reset/Undo...");
+        try
+        {
+            IsAIThinking = true;
+            if (BoardManager.Instance != null) BoardManager.Instance.SetUserInputEnabled(false);
+            int currentDepth = SideToMove == Side.White ? WhiteAIDifficulty : BlackAIDifficulty;
+            Movement bestMove = await uciEngine.GetBestMove(aiThinkTimeMs, currentDepth);
+            IsAIThinking = false;
+
+            Piece pieceToMove = CurrentBoard[bestMove.Start];
+            if (pieceToMove == null) { Debug.LogError($"AI (TriggerAIMove) Error: Không tìm thấy quân cờ tại {bestMove.Start}."); return; }
+            if (game == null || SideToMove != pieceToMove.Owner) { Debug.LogWarning("Nước đi của AI đã bị hủy."); return; }
+
+            if (bestMove != null) DoAIMove(bestMove);
+            else Debug.LogError("Lỗi AI (sau khi Reset): Engine trả về nước đi null.");
+        }
+        catch (Exception ex)
+        {
+            IsAIThinking = false; Debug.LogError($"Lỗi AI (sau khi Reset): {ex.Message}");
+            if (BoardManager.Instance != null) BoardManager.Instance.SetUserInputEnabled(GetHumanSide() == SideToMove);
+        }
+    }
+
+    private void CheckAndTriggerAI()
+    {
+        if (!isReplayMode && uciEngine != null)
+        {
+            bool aiTurnNow = (SideToMove == Side.White && isWhiteAI) || (SideToMove == Side.Black && isBlackAI);
+
+            if (aiTurnNow)
+            {
+                TriggerAIMove();
+            }
+        }
+    }
+
 
 }
