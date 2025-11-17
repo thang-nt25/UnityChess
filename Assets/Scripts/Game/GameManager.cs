@@ -76,7 +76,6 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
     private bool isBlackAI;
     private bool lastWhiteAI;
     private bool lastBlackAI;
-    public bool IsReplayMode { get; set; } = false;
 
 
 
@@ -421,14 +420,6 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         LastEndReason = GameEndReason.None;
         LastWinner = Side.None;
         InitClock();
-
-        game = new Game();
-        LastEndReason = GameEndReason.None;
-        LastWinner = Side.None;
-        InitClock();
-
-        //_halfMoveIndicesForUndo = new Stack<int>();
-        //_halfMoveIndicesForUndo.Push(game.HalfMoveTimeline.HeadIndex);
 
         promotionTcs = null;
         if (UIManager.Instance != null)
