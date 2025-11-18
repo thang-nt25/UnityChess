@@ -106,6 +106,14 @@ public class CapturedPiecesUI : MonoBehaviour
         }
     }
 
+    public void ToggleVisibility()
+    {
+        // Check the current state of one of the areas and toggle both
+        bool isActive = whiteArea.gameObject.activeSelf;
+        whiteArea.gameObject.SetActive(!isActive);
+        blackArea.gameObject.SetActive(!isActive);
+    }
+
     private Sprite GetSprite(string pieceType, bool isWhite)
     {
         switch (pieceType)
