@@ -820,10 +820,10 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
                     && uciEngine != null
                     && ((SideToMove == Side.White && isWhiteAI) || (SideToMove == Side.Black && isBlackAI)))
         {
-            IsAIThinking = true; 
+            IsAIThinking = true;
             int currentDepth = SideToMove == Side.White ? WhiteAIDifficulty : BlackAIDifficulty;
             Movement bestMove = await uciEngine.GetBestMove(aiThinkTimeMs, currentDepth);
-            IsAIThinking = false; 
+            IsAIThinking = false;
 
             if (bestMove != null) DoAIMove(bestMove);
         }

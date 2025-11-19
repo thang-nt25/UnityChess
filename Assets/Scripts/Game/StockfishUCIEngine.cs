@@ -16,19 +16,53 @@ namespace UnityChess.Engine
         {
             if (!_isInitialized)
             {
-                // Initialize Stockfish components
-                StockFishPortApp_5._0.Uci.init(StockFishPortApp_5._0.Engine.Options);
-                StockFishPortApp_5._0.BitBoard.init();
-                StockFishPortApp_5._0.Position.init();
-                StockFishPortApp_5._0.Bitbases.init_kpk();
-                StockFishPortApp_5._0.Search.init();
-                StockFishPortApp_5._0.Pawns.init();
-                StockFishPortApp_5._0.Eval.init();
-                StockFishPortApp_5._0.Engine.Threads.init();
-                StockFishPortApp_5._0.Engine.TT.resize((ulong)StockFishPortApp_5._0.Engine.Options["Hash"].getInt());
+                try
+                {
+                    UnityEngine.Debug.Log("[Stockfish] Initializing Stockfish components...");
 
-                _currentPosition = new StockFishPortApp_5._0.Position(StockFishPortApp_5._0.Uci.StartFEN, 0, StockFishPortApp_5._0.Engine.Threads.main());
-                _isInitialized = true;
+                    // Initialize Stockfish components
+                    StockFishPortApp_5._0.Uci.init(StockFishPortApp_5._0.Engine.Options);
+                    UnityEngine.Debug.Log("[Stockfish] UCI initialized");
+
+                    StockFishPortApp_5._0.BitBoard.init();
+                    UnityEngine.Debug.Log("[Stockfish] BitBoard initialized");
+
+                    StockFishPortApp_5._0.Position.init();
+                    UnityEngine.Debug.Log("[Stockfish] Position initialized");
+
+                    StockFishPortApp_5._0.Bitbases.init_kpk();
+                    UnityEngine.Debug.Log("[Stockfish] Bitbases initialized");
+
+                    StockFishPortApp_5._0.Search.init();
+                    UnityEngine.Debug.Log("[Stockfish] Search initialized");
+
+                    StockFishPortApp_5._0.Pawns.init();
+                    UnityEngine.Debug.Log("[Stockfish] Pawns initialized");
+
+                    StockFishPortApp_5._0.Eval.init();
+                    UnityEngine.Debug.Log("[Stockfish] Eval initialized");
+
+                    StockFishPortApp_5._0.Engine.Threads.init();
+                    UnityEngine.Debug.Log("[Stockfish] Threads initialized");
+
+                    StockFishPortApp_5._0.Engine.TT.resize((ulong)StockFishPortApp_5._0.Engine.Options["Hash"].getInt());
+                    UnityEngine.Debug.Log("[Stockfish] TT resized");
+
+                    _currentPosition = new StockFishPortApp_5._0.Position(StockFishPortApp_5._0.Uci.StartFEN, 0, StockFishPortApp_5._0.Engine.Threads.main());
+                    UnityEngine.Debug.Log("[Stockfish] Initial position set");
+
+                    _isInitialized = true;
+                    UnityEngine.Debug.Log("[Stockfish] Initialization completed successfully");
+                }
+                catch (Exception ex)
+                {
+                    UnityEngine.Debug.LogError($"[Stockfish] Exception during initialization: {ex.Message}\n{ex.StackTrace}");
+                    _isInitialized = false;
+                }
+            }
+            else
+            {
+                UnityEngine.Debug.Log("[Stockfish] Already initialized");
             }
         }
 
@@ -55,6 +89,8 @@ namespace UnityChess.Engine
         {
             try
             {
+                UnityEngine.Debug.Log($"[Stockfish] Starting GetBestMove with timeout={timeoutMS}ms, depth={depth}");
+
                 // Update position to current game state
                 FENSerializer fenSerializer = new FENSerializer();
                 string fen = fenSerializer.Serialize(_game);
@@ -66,7 +102,8 @@ namespace UnityChess.Engine
                     parts[3] = "-"; // en passant
                 }
                 fen = string.Join(" ", parts);
-                UnityEngine.Debug.Log($"FEN used for Stockfish (castling and en passant removed): {fen}");
+                UnityEngine.Debug.Log($"[Stockfish] FEN used: {fen}");
+
                 _currentPosition.set(fen, 0, StockFishPortApp_5._0.Engine.Threads.main());
                 StockFishPortApp_5._0.Uci.SetupStates = new StockFishPortApp_5._0.StateStackPtr();
 
@@ -78,6 +115,8 @@ namespace UnityChess.Engine
                     limits.depth = depth;
                 }
 
+                UnityEngine.Debug.Log("[Stockfish] Starting search...");
+
                 // Start search
                 StockFishPortApp_5._0.Search.RootMoves.Clear();
                 StockFishPortApp_5._0.Engine.Threads.start_thinking(_currentPosition, limits, StockFishPortApp_5._0.Uci.SetupStates);
@@ -85,53 +124,63 @@ namespace UnityChess.Engine
                 // Wait for search to finish
                 StockFishPortApp_5._0.Engine.Threads.wait_for_think_finished();
 
+                UnityEngine.Debug.Log($"[Stockfish] Search finished. RootMoves count: {StockFishPortApp_5._0.Search.RootMoves.Count}");
+
                 // Get best move from RootMoves
                 if (StockFishPortApp_5._0.Search.RootMoves.Count > 0 && StockFishPortApp_5._0.Search.RootMoves[0].pv.Count > 0)
                 {
                     int bestMove = StockFishPortApp_5._0.Search.RootMoves[0].pv[0];
-                    UnityEngine.Debug.Log($"Stockfish bestMove int: {bestMove}");
+                    UnityEngine.Debug.Log($"[Stockfish] Best move int: {bestMove}");
+
                     // Convert to Movement
-                    // Need to convert Stockfish Move to UnityChess Movement
                     Movement move = ConvertMove(bestMove);
                     if (move != null)
                     {
+                        UnityEngine.Debug.Log($"[Stockfish] Converted move: {move}");
+
                         // Validate move
                         _game.BoardTimeline.TryGetCurrent(out Board board);
                         Piece piece = board[move.Start];
                         if (piece == null)
                         {
-                            UnityEngine.Debug.LogError($"No piece at {move.Start}");
+                            UnityEngine.Debug.LogError($"[Stockfish] No piece at {move.Start}");
                             return null;
                         }
                         _game.ConditionsTimeline.TryGetCurrent(out GameConditions cond);
                         if (piece.Owner != cond.SideToMove)
                         {
-                            UnityEngine.Debug.LogError($"Piece at {move.Start} is not of side to move");
+                            UnityEngine.Debug.LogError($"[Stockfish] Piece at {move.Start} is not of side to move");
                             return null;
                         }
                         if (_game.TryGetLegalMovesForPiece(piece, out ICollection<Movement> legalMoves) && legalMoves != null)
                         {
                             if (!legalMoves.Contains(move))
                             {
-                                UnityEngine.Debug.LogError($"Move {move} is not legal. Legal moves: {string.Join(", ", legalMoves)}");
+                                UnityEngine.Debug.LogError($"[Stockfish] Move {move} is not legal. Legal moves: {string.Join(", ", legalMoves)}");
                                 return null;
                             }
                         }
                         else
                         {
-                            UnityEngine.Debug.LogError($"Could not get legal moves for piece at {move.Start}");
+                            UnityEngine.Debug.LogError($"[Stockfish] Could not get legal moves for piece at {move.Start}");
                             return null;
                         }
+                        UnityEngine.Debug.Log($"[Stockfish] Move validated successfully: {move}");
+                        return move;
                     }
-                    return move;
+                    else
+                    {
+                        UnityEngine.Debug.LogError("[Stockfish] ConvertMove returned null");
+                        return null;
+                    }
                 }
 
-                UnityEngine.Debug.Log("No moves found by Stockfish");
+                UnityEngine.Debug.LogError("[Stockfish] No moves found by Stockfish");
                 return null; // No move found
             }
             catch (Exception ex)
             {
-                UnityEngine.Debug.LogError($"Exception in GetBestMove: {ex.Message}\n{ex.StackTrace}");
+                UnityEngine.Debug.LogError($"[Stockfish] Exception in GetBestMove: {ex.Message}\n{ex.StackTrace}");
                 return null;
             }
         }
