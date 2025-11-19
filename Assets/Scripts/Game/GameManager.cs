@@ -298,6 +298,30 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
             _ => Side.White
         };
     }
+
+    /// <summary>
+    /// Get current AI engine status for debugging
+    /// </summary>
+    public string GetAIStatus()
+    {
+        if (uciEngine is AIFallbackManager fallbackManager)
+        {
+            return fallbackManager.GetStatus();
+        }
+        return "No AI engine";
+    }
+
+    /// <summary>
+    /// Force switch to a specific AI engine type
+    /// </summary>
+    public void ForceAISwitch(AIFallbackManager.AIEngineType engineType)
+    {
+        if (uciEngine is AIFallbackManager fallbackManager)
+        {
+            fallbackManager.ForceSwitchTo(engineType);
+            Debug.Log($"[GameManager] Forced AI switch to: {engineType}");
+        }
+    }
     private void InitClock()
     {
         int sec = TimePrefs.GetSecondsOrDefault();
@@ -432,14 +456,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         {
             if (uciEngine == null)
             {
-<<<<<<< Updated upstream
-                uciEngine = new MockUCIEngine();
-=======
-https://github.com/GameUnity-2025/UnityChess                if (isWhiteAI || isBlackAI)
-        {
-            if (uciEngine == null)
-            {
-                uciEngine = new StockfishUCIEngine();
+                uciEngine = new AIFallbackManager();
                 uciEngine.Start();
             }
 
@@ -447,7 +464,7 @@ https://github.com/GameUnity-2025/UnityChess                if (isWhiteAI || isB
 
             if (uciEngine == null)
             {
-                Debug.LogError("[GameManager] UCI Engine is null after attempted initialization. Cannot start AI game.");
+                Debug.LogError("[GameManager] AI Fallback Manager is null after attempted initialization. Cannot start AI game.");
                 return;
             }
 
@@ -470,16 +487,18 @@ https://github.com/GameUnity-2025/UnityChess                if (isWhiteAI || isB
                 try
                 {
                     int currentDepth = SideToMove == Side.White ? WhiteAIDifficulty : BlackAIDifficulty;
+                    Debug.Log($"[GameManager] AI turn - Side: {SideToMove}, Depth: {currentDepth}, Engine: {GetAIStatus()}");
+
                     Movement bestMove = await uciEngine.GetBestMove(aiThinkTimeMs, currentDepth);
 
                     if (bestMove != null)
                     {
-                        Debug.Log($"[GameManager] AI move: {bestMove.Start} -> {bestMove.End}");
+                        Debug.Log($"[GameManager] AI move successful: {bestMove.Start} -> {bestMove.End}");
                         DoAIMove(bestMove);
                     }
                     else
                     {
-                        Debug.LogError("AI Move failed: Engine returned a null move.");
+                        Debug.LogError("[GameManager] AI Move failed: Engine returned a null move.");
                     }
                 }
                 catch (Exception ex)
@@ -827,10 +846,10 @@ https://github.com/GameUnity-2025/UnityChess                if (isWhiteAI || isB
                     && uciEngine != null
                     && ((SideToMove == Side.White && isWhiteAI) || (SideToMove == Side.Black && isBlackAI)))
         {
-            IsAIThinking = true; 
+            IsAIThinking = true;
             int currentDepth = SideToMove == Side.White ? WhiteAIDifficulty : BlackAIDifficulty;
             Movement bestMove = await uciEngine.GetBestMove(aiThinkTimeMs, currentDepth);
-            IsAIThinking = false; 
+            IsAIThinking = false;
 
             if (bestMove != null) DoAIMove(bestMove);
         }
@@ -839,36 +858,45 @@ https://github.com/GameUnity-2025/UnityChess                if (isWhiteAI || isB
 
     private void DoAIMove(Movement move)
     {
-        if (move == null || BoardManager.Instance == null)
+        try
         {
-            Debug.LogError("[GameManager] DoAIMove called with null move or BoardManager is null.");
-            return;
-        }
+            if (move == null || BoardManager.Instance == null)
+            {
+                Debug.LogError("[GameManager] DoAIMove called with null move or BoardManager is null.");
+                return;
+            }
 
-        GameObject movedPiece = BoardManager.Instance.GetPieceGOAtPosition(move.Start);
-        if (movedPiece == null)
+            GameObject movedPiece = BoardManager.Instance.GetPieceGOAtPosition(move.Start);
+            if (movedPiece == null)
+            {
+                Debug.LogError($"[GameManager] DoAIMove: No VisualPiece found at {move.Start}.");
+                Debug.LogError($"[GameManager] Current game state (FEN): {SerializeGame()}");
+                Debug.LogError($"[GameManager] SideToMove: {SideToMove}");
+                return;
+            }
+
+            GameObject endSquareGO = BoardManager.Instance.GetSquareGOByPosition(move.End);
+            if (endSquareGO == null)
+            {
+                Debug.LogError($"[GameManager] DoAIMove: No SquareGO found for {move.End}.");
+                return;
+            }
+
+            isReplayingMove = true;
+            OnPieceMoved(
+            move.Start,
+            movedPiece.transform,
+            endSquareGO.transform,
+            (move as PromotionMove)?.PromotionPiece
+            );
+            isReplayingMove = false;
+        }
+        catch (Exception ex)
         {
-            Debug.LogError($"[GameManager] DoAIMove: No VisualPiece found at {move.Start}.");
-            Debug.LogError($"[GameManager] Current game state (FEN): {SerializeGame()}");
-            Debug.LogError($"[GameManager] SideToMove: {SideToMove}");
-            return;
+            Debug.LogError($"[GameManager] Exception in DoAIMove: {ex.Message}\n{ex.StackTrace}");
+            Debug.LogError($"[GameManager] Invalid move attempted: {move}");
+            // Optionally, end game or reset
         }
-
-        GameObject endSquareGO = BoardManager.Instance.GetSquareGOByPosition(move.End);
-        if (endSquareGO == null)
-        {
-            Debug.LogError($"[GameManager] DoAIMove: No SquareGO found for {move.End}.");
-            return;
-        }
-
-        isReplayingMove = true;
-        OnPieceMoved(
-        move.Start,
-        movedPiece.transform,
-        endSquareGO.transform,
-        (move as PromotionMove)?.PromotionPiece
-        );
-        isReplayingMove = false;
     }
 
     public bool HasLegalMoves(Piece piece)
