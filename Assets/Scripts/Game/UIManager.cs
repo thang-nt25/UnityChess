@@ -52,6 +52,10 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
     [SerializeField] private Button inGameUndoButton; 
     [SerializeField] private Button inGameRedoButton;
 
+    [Header("Captured Piece UI")]
+    [SerializeField] private Button toggleCapturedButton = null;
+
+
     private bool isPaused = false;
     private Timeline<FullMoveUI> moveUITimeline;
     private Color buttonColor;
@@ -214,6 +218,9 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
         EnableAllControlButtons();
 
+        if (toggleCapturedButton != null)
+            toggleCapturedButton.interactable = true;
+
         GameManager.Instance.running = true;
 
         UpdateInGameNavButtons();
@@ -287,6 +294,8 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         // Hiển thị panel kết quả
         SetBoardInteraction(false);
         if (resultPanel != null) resultPanel.SetActive(true);
+        if (toggleCapturedButton != null)
+            toggleCapturedButton.interactable = false;
         Time.timeScale = 0f;
 
         gm.running = false;
@@ -651,6 +660,9 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
         SetBoardInteraction(false);
         if (resultPanel != null) resultPanel.SetActive(true);
+        if (toggleCapturedButton != null)
+            toggleCapturedButton.interactable = false;
+
 
         DisableAllControlButtons();
     }
@@ -680,6 +692,8 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         GameManager.Instance.running = false;
         SetBoardInteraction(false);
         if (resultPanel != null) resultPanel.SetActive(true);
+        if (toggleCapturedButton != null)
+            toggleCapturedButton.interactable = false;
 
         DisableAllControlButtons();
     }

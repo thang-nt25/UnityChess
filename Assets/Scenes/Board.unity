@@ -12270,6 +12270,7 @@ MonoBehaviour:
   aiDifficultyText: {fileID: 0}
   inGameUndoButton: {fileID: 889249359}
   inGameRedoButton: {fileID: 583867206}
+  toggleCapturedButton: {fileID: 1733009361}
 --- !u!222 &1342442566114413360
 CanvasRenderer:
   m_ObjectHideFlags: 0
