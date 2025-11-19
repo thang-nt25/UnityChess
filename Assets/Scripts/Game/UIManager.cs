@@ -48,6 +48,14 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
     [Header("AI Difficulty")]
     [SerializeField] private TMP_Text aiDifficultyText = null;
 
+    [Header("In-Game Navigation")]
+    [SerializeField] private Button inGameUndoButton; 
+    [SerializeField] private Button inGameRedoButton;
+
+    [Header("Captured Piece UI")]
+    [SerializeField] private Button toggleCapturedButton = null;
+
+
     private bool isPaused = false;
     private Timeline<FullMoveUI> moveUITimeline;
     private Color buttonColor;
@@ -104,6 +112,11 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
         SetTraversalBarVisibility(GameManager.Instance.isReplayMode);
         UpdateControlButtonsVisibility();
+
+        if (inGameUndoButton) inGameUndoButton.onClick.AddListener(OnInGameUndoClicked);
+        if (inGameRedoButton) inGameRedoButton.onClick.AddListener(OnInGameRedoClicked);
+
+        UpdateInGameNavButtons();
     }
 
     private void OnDestroy()
@@ -205,7 +218,12 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
         EnableAllControlButtons();
 
+        if (toggleCapturedButton != null)
+            toggleCapturedButton.interactable = true;
+
         GameManager.Instance.running = true;
+
+        UpdateInGameNavButtons();
     }
 
     private void UpdateAIDifficultyText()
@@ -227,80 +245,62 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         }
     }
 
-
     public void OnGameEnded()
     {
         var gm = GameManager.Instance;
-        if (gm == null)
-            return;
+        if (gm == null) return;
 
         HideAllResultImages();
+
+        Side playerSide = GetPlayerSide();
+        Side winner = gm.LastWinner;
+        bool playerWin = (winner == playerSide);
 
         switch (gm.LastEndReason)
         {
             case GameManager.GameEndReason.Checkmate:
-                ShowWinner(gm.LastWinner);
-                if (gameStatusText) gameStatusText.text = $"{gm.LastWinner} wins by checkmate";
+                ShowWinner(winner);
+                if (gameStatusText)
+                    gameStatusText.text = playerWin ? "You Win! (Checkmate)" : "You Lose! (Checkmate)";
+                break;
+
+            case GameManager.GameEndReason.Resign:
+                ShowWinner(winner);
+                if (gameStatusText)
+                    gameStatusText.text = playerWin ? "You Win! (Opponent Resigned)" : "You Lose! (You Resigned)";
+                break;
+
+            case GameManager.GameEndReason.Timeout:
+                ShowWinner(winner);
+                if (gameStatusText)
+                    gameStatusText.text = playerWin ? "You Win! (Timeout)" : "You Lose! (Timeout)";
                 break;
 
             case GameManager.GameEndReason.Stalemate:
                 SetResultImageActive(false, false, true);
-                if (gameStatusText) gameStatusText.text = "Draw (Stalemate)";
-                break;
-
-            case GameManager.GameEndReason.Timeout:
-                if (IsPvP())
-                {
-                    if (gm.LastWinner == Side.White)
-                    {
-                        if (whiteWinImage) whiteWinImage.gameObject.SetActive(true);
-                    }
-                    else
-                    {
-                        if (blackWinImage) blackWinImage.gameObject.SetActive(true);
-                    }
-
-                    if (gameStatusText) gameStatusText.text = $"{gm.LastWinner} wins (Timeout)";
-                    if (resultPanel) resultPanel.SetActive(true);
-                }
-                else
-                {
-                    bool playerWin = (gm.LastWinner == GetPlayerSide());
-                    SetResultImageActive(playerWin, !playerWin, false);
-
-                    if (gameStatusText) gameStatusText.text = playerWin
-                        ? $"You Win! ({gm.LastWinner} wins by Timeout)"
-                        : $"You Lose! ({gm.LastWinner} wins by Timeout)";
-                }
+                if (gameStatusText)
+                    gameStatusText.text = "Draw (Stalemate)";
                 break;
 
             case GameManager.GameEndReason.Draw:
             case GameManager.GameEndReason.None:
             default:
-                if (GameManager.Instance.HalfMoveTimeline != null &&
-                    GameManager.Instance.HalfMoveTimeline.TryGetCurrent(out HalfMove latestHalfMove))
-                {
-                    if (latestHalfMove.CausedStalemate)
-                    {
-                        SetResultImageActive(false, false, true);
-                        if (gameStatusText) gameStatusText.text = "Draw (Stalemate)";
-                    }
-                    else if (latestHalfMove.CausedCheckmate)
-                    {
-                        Side winner = GameManager.Instance.SideToMove.Complement();
-                        ShowWinner(winner);
-                        if (gameStatusText) gameStatusText.text = $"{winner} wins by checkmate";
-                    }
-                }
+                SetResultImageActive(false, false, true);
+                if (gameStatusText)
+                    gameStatusText.text = "Draw";
                 break;
         }
 
+        // Hiển thị panel kết quả
         SetBoardInteraction(false);
         if (resultPanel != null) resultPanel.SetActive(true);
+        if (toggleCapturedButton != null)
+            toggleCapturedButton.interactable = false;
         Time.timeScale = 0f;
 
-        GameManager.Instance.running = false;
+        gm.running = false;
     }
+
 
 
 
@@ -341,6 +341,8 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
             else
                 gameStatusText.text = "";
         }
+
+        UpdateInGameNavButtons();
     }
 
 
@@ -359,6 +361,8 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
         moveUITimeline.HeadIndex = GameManager.Instance.LatestHalfMoveIndex / 2;
         ValidateIndicators();
+
+        UpdateInGameNavButtons();
     }
 
     public void SetActivePromotionUI(bool value)
@@ -387,7 +391,7 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         }
         else
         {
-            GameManager.Instance.UndoLastMove();
+            GameManager.Instance.StepBack();
         }
     }
 
@@ -399,8 +403,7 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         }
         else
         {
-            int maxIndex = (GameManager.Instance.HalfMoveTimeline?.Count ?? 1) - 1;
-            GameManager.Instance.ResetGameToHalfMoveIndex(Math.Min(GameManager.Instance.LatestHalfMoveIndex + 1, maxIndex));
+            GameManager.Instance.StepForward();
         }
     }
 
@@ -649,14 +652,17 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
 
         if (gameStatusText)
             gameStatusText.text = playerWin
-                ? "Opponent Resigned. Game Over (You Win)"
-                : "You Resigned. Game Over (You Lose)";
+                ? "Resigned. Game Over"
+                : "Resigned. Game Over";
 
         Time.timeScale = 0f;
         GameManager.Instance.running = false;
 
         SetBoardInteraction(false);
         if (resultPanel != null) resultPanel.SetActive(true);
+        if (toggleCapturedButton != null)
+            toggleCapturedButton.interactable = false;
+
 
         DisableAllControlButtons();
     }
@@ -686,6 +692,8 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         GameManager.Instance.running = false;
         SetBoardInteraction(false);
         if (resultPanel != null) resultPanel.SetActive(true);
+        if (toggleCapturedButton != null)
+            toggleCapturedButton.interactable = false;
 
         DisableAllControlButtons();
     }
@@ -695,6 +703,12 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         pauseButton.interactable = false;
         resignButton.interactable = false;
         drawButton.interactable = false;
+
+        if (inGameUndoButton != null)
+            inGameUndoButton.interactable = false;
+
+        if (inGameRedoButton != null)
+            inGameRedoButton.interactable = false;
     }
 
     private void EnableAllControlButtons()
@@ -726,6 +740,7 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         {
             GameManager.Instance.OnClick_WatchReplay();
             UpdateControlButtonsVisibility();
+            UpdateInGameNavButtons();
         }
     }
 
@@ -768,6 +783,35 @@ public class UIManager : MonoBehaviourSingleton<UIManager>
         SetResultImageActive(false, false, false);
         if (whiteWinImage) whiteWinImage.gameObject.SetActive(false);
         if (blackWinImage) blackWinImage.gameObject.SetActive(false);
+    }
+
+    public void OnInGameUndoClicked()
+    {
+        GameManager.Instance.StepBack();
+    }
+
+    public void OnInGameRedoClicked()
+    {
+        GameManager.Instance.StepForward();
+    }
+
+    private void UpdateInGameNavButtons()
+    {
+        if (GameManager.Instance == null) return;
+
+        bool isReplay = GameManager.Instance.isReplayMode;
+
+        if (inGameUndoButton)
+        {
+            inGameUndoButton.gameObject.SetActive(!isReplay);
+            inGameUndoButton.interactable = GameManager.Instance.CanUndo;
+        }
+
+        if (inGameRedoButton)
+        {
+            inGameRedoButton.gameObject.SetActive(!isReplay);
+            inGameRedoButton.interactable = GameManager.Instance.CanRedo;
+        }
     }
 
 }
