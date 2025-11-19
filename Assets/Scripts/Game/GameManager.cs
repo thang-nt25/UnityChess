@@ -432,7 +432,14 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         {
             if (uciEngine == null)
             {
+<<<<<<< Updated upstream
                 uciEngine = new MockUCIEngine();
+=======
+https://github.com/GameUnity-2025/UnityChess                if (isWhiteAI || isBlackAI)
+        {
+            if (uciEngine == null)
+            {
+                uciEngine = new StockfishUCIEngine();
                 uciEngine.Start();
             }
 
