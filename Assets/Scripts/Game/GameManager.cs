@@ -298,6 +298,30 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
             _ => Side.White
         };
     }
+
+    /// <summary>
+    /// Get current AI engine status for debugging
+    /// </summary>
+    public string GetAIStatus()
+    {
+        if (uciEngine is AIFallbackManager fallbackManager)
+        {
+            return fallbackManager.GetStatus();
+        }
+        return "No AI engine";
+    }
+
+    /// <summary>
+    /// Force switch to a specific AI engine type
+    /// </summary>
+    public void ForceAISwitch(AIFallbackManager.AIEngineType engineType)
+    {
+        if (uciEngine is AIFallbackManager fallbackManager)
+        {
+            fallbackManager.ForceSwitchTo(engineType);
+            Debug.Log($"[GameManager] Forced AI switch to: {engineType}");
+        }
+    }
     private void InitClock()
     {
         int sec = TimePrefs.GetSecondsOrDefault();
@@ -432,7 +456,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         {
             if (uciEngine == null)
             {
-                uciEngine = new StockfishUCIEngine();
+                uciEngine = new AIFallbackManager();
                 uciEngine.Start();
             }
 
@@ -440,7 +464,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
 
             if (uciEngine == null)
             {
-                Debug.LogError("[GameManager] UCI Engine is null after attempted initialization. Cannot start AI game.");
+                Debug.LogError("[GameManager] AI Fallback Manager is null after attempted initialization. Cannot start AI game.");
                 return;
             }
 
@@ -463,16 +487,18 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
                 try
                 {
                     int currentDepth = SideToMove == Side.White ? WhiteAIDifficulty : BlackAIDifficulty;
+                    Debug.Log($"[GameManager] AI turn - Side: {SideToMove}, Depth: {currentDepth}, Engine: {GetAIStatus()}");
+
                     Movement bestMove = await uciEngine.GetBestMove(aiThinkTimeMs, currentDepth);
 
                     if (bestMove != null)
                     {
-                        Debug.Log($"[GameManager] AI move: {bestMove.Start} -> {bestMove.End}");
+                        Debug.Log($"[GameManager] AI move successful: {bestMove.Start} -> {bestMove.End}");
                         DoAIMove(bestMove);
                     }
                     else
                     {
-                        Debug.LogError("AI Move failed: Engine returned a null move.");
+                        Debug.LogError("[GameManager] AI Move failed: Engine returned a null move.");
                     }
                 }
                 catch (Exception ex)
