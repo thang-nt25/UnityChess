@@ -432,7 +432,7 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
         {
             if (uciEngine == null)
             {
-                uciEngine = new MockUCIEngine();
+                uciEngine = new StockfishUCIEngine();
                 uciEngine.Start();
             }
 
@@ -820,10 +820,10 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
                     && uciEngine != null
                     && ((SideToMove == Side.White && isWhiteAI) || (SideToMove == Side.Black && isBlackAI)))
         {
-            IsAIThinking = true; 
+            IsAIThinking = true;
             int currentDepth = SideToMove == Side.White ? WhiteAIDifficulty : BlackAIDifficulty;
             Movement bestMove = await uciEngine.GetBestMove(aiThinkTimeMs, currentDepth);
-            IsAIThinking = false; 
+            IsAIThinking = false;
 
             if (bestMove != null) DoAIMove(bestMove);
         }
@@ -832,36 +832,45 @@ public class GameManager : MonoBehaviourSingleton<GameManager>
 
     private void DoAIMove(Movement move)
     {
-        if (move == null || BoardManager.Instance == null)
+        try
         {
-            Debug.LogError("[GameManager] DoAIMove called with null move or BoardManager is null.");
-            return;
-        }
+            if (move == null || BoardManager.Instance == null)
+            {
+                Debug.LogError("[GameManager] DoAIMove called with null move or BoardManager is null.");
+                return;
+            }
 
-        GameObject movedPiece = BoardManager.Instance.GetPieceGOAtPosition(move.Start);
-        if (movedPiece == null)
+            GameObject movedPiece = BoardManager.Instance.GetPieceGOAtPosition(move.Start);
+            if (movedPiece == null)
+            {
+                Debug.LogError($"[GameManager] DoAIMove: No VisualPiece found at {move.Start}.");
+                Debug.LogError($"[GameManager] Current game state (FEN): {SerializeGame()}");
+                Debug.LogError($"[GameManager] SideToMove: {SideToMove}");
+                return;
+            }
+
+            GameObject endSquareGO = BoardManager.Instance.GetSquareGOByPosition(move.End);
+            if (endSquareGO == null)
+            {
+                Debug.LogError($"[GameManager] DoAIMove: No SquareGO found for {move.End}.");
+                return;
+            }
+
+            isReplayingMove = true;
+            OnPieceMoved(
+            move.Start,
+            movedPiece.transform,
+            endSquareGO.transform,
+            (move as PromotionMove)?.PromotionPiece
+            );
+            isReplayingMove = false;
+        }
+        catch (Exception ex)
         {
-            Debug.LogError($"[GameManager] DoAIMove: No VisualPiece found at {move.Start}.");
-            Debug.LogError($"[GameManager] Current game state (FEN): {SerializeGame()}");
-            Debug.LogError($"[GameManager] SideToMove: {SideToMove}");
-            return;
+            Debug.LogError($"[GameManager] Exception in DoAIMove: {ex.Message}\n{ex.StackTrace}");
+            Debug.LogError($"[GameManager] Invalid move attempted: {move}");
+            // Optionally, end game or reset
         }
-
-        GameObject endSquareGO = BoardManager.Instance.GetSquareGOByPosition(move.End);
-        if (endSquareGO == null)
-        {
-            Debug.LogError($"[GameManager] DoAIMove: No SquareGO found for {move.End}.");
-            return;
-        }
-
-        isReplayingMove = true;
-        OnPieceMoved(
-        move.Start,
-        movedPiece.transform,
-        endSquareGO.transform,
-        (move as PromotionMove)?.PromotionPiece
-        );
-        isReplayingMove = false;
     }
 
     public bool HasLegalMoves(Piece piece)
